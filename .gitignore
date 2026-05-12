@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+.DS_Store
+.vscode/
+*.db
+*.sqlite
+mlruns/
+models/*.pkl
+reports/figures/*.png
+!reports/figures/.gitkeep
