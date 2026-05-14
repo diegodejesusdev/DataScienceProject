@@ -1,16 +1,62 @@
+# Variables de entorno
 .env
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Virtualenv
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# Datos (NO commitear)
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
-.DS_Store
-.vscode/
+
+# Modelos entrenados
+models/
+*.pkl
+*.joblib
+
+# Bases de datos locales
 *.db
 *.sqlite
-mlruns/
-models/*.pkl
+*.sqlite3
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Reportes generados
 reports/figures/*.png
+reports/figures/*.jpg
 !reports/figures/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker/jupyter/.cache/
+
+# Apache Hop
+hop/.hop/
