@@ -36,7 +36,8 @@ Este archivo le dice a Claude Code todo lo que necesita saber para trabajar en e
 | Base de datos | MySQL 8.0 | Contenedor `construnorte_mysql` |
 | Admin BD (GUI web) | Adminer | Contenedor `construnorte_adminer` |
 | Ambiente análisis | Jupyter Lab + Python 3.11 | Contenedor `construnorte_jupyter` |
-| ETL visual | Apache Hop | **Nativo en Mac** (la GUI no se contenedoriza) |
+| Ingesta visual del CSV | Apache Hop (un solo flujo simple) | **Nativo en Mac** (la GUI no se contenedoriza) |
+| Limpieza, agregación, ETL principal | Python en el contenedor Jupyter | Hop solo hace la ingesta inicial; todo lo demás es Python |
 | Dashboard | Tableau Desktop (licencia académica) | **Nativo en Mac** |
 | Control de versiones | Git + GitHub | Host |
 
@@ -237,7 +238,7 @@ Antes de empezar cualquier tarea técnica, **lee la skill correspondiente**. Cad
 |---|---|
 | `project-conventions/` | Antes de crear cualquier archivo nuevo |
 | `mysql-operations/` | Antes de tocar tablas, hacer queries o cargar datos |
-| `etl-pipeline/` | Antes de procesar/limpiar el CSV o cargar a MySQL |
+| `etl-pipeline/` | Antes de procesar el CSV, configurar el flujo de Hop o cargar a MySQL |
 | `feature-engineering/` | Antes de generar features (lags, calendario, medias móviles) |
 | `abc-xyz-classification/` | Antes de calcular ABC, XYZ o la matriz combinada |
 | `time-series-modeling/` | Antes de entrenar LightGBM, XGBoost o Prophet |

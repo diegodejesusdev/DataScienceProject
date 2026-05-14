@@ -88,13 +88,20 @@ Registro de las decisiones de arquitectura y stack del proyecto. Sirve para la s
 
 ---
 
-## Apache Hop para ETL visual
+## Apache Hop solo para la ingesta inicial
 
-**Por qué Apache Hop y no solo Python:**
-- Visual: facilita explicar el pipeline en el informe y a la organización.
-- Permite reutilizar el flujo si se actualizan datos futuros.
+**Por qué Apache Hop:**
+- Requisito académico del programa: el diplomado exige el uso de una herramienta ETL visual.
+- Se ve bien en el informe ejecutivo: muestra un flujo gráfico fácil de leer.
 - Es la herramienta de ETL visual recomendada por el programa.
 
-**División de responsabilidades:**
-- Hop: lectura del CSV, filtrado de columnas, carga a `ventas_crudas`.
-- Python: limpieza fina, agregaciones, feature engineering, modelado.
+**Por qué solo UN flujo simple en Hop:**
+- Toda la lógica de tipificación, limpieza, filtrado y agregación requiere condicionales, manejo de fechas en formato `YYYYMMDD` y normalización de decimales con coma. Eso es mucho más natural y mantenible en Python.
+- Implementar lógica condicional compleja en Hop alarga el ciclo de desarrollo, dificulta el debugging y no aporta valor frente a Python.
+- Hop con un solo flujo cumple el requisito de uso de herramienta ETL sin sacrificar productividad.
+
+**División concreta:**
+- **Hop hace SOLO:** lectura del CSV → filtrado de las 17 columnas útiles (descarta las personales) → carga a `ventas_staging` en MySQL. 3 pasos visuales: `Text File Input → Select Values → Table Output`.
+- **Python hace todo lo demás:** desde `ventas_staging` → tipificación → limpieza → filtrado por tipo de documento → construcción de `ventas_crudas`, `dim_producto`, `ventas_semanales`.
+
+Esta separación da lo mejor de ambos mundos: lo visual y demostrable para el evaluador, y la mantenibilidad de código Python para el equipo.

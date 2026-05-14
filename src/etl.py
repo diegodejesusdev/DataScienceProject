@@ -1,9 +1,17 @@
 """Pipeline ETL — Proyecto ConstruNorte.
 
-Lee el CSV crudo, elimina columnas personales, normaliza tipos,
-filtra por tipo de documento de venta y carga a MySQL.
+Estrategia de ETL:
+- Apache Hop hace la INGESTA INICIAL del CSV crudo a la tabla `ventas_staging`
+  (con las 17 columnas útiles, ya sin datos personales).
+- Python toma `ventas_staging`, tipifica, limpia y construye:
+    - ventas_crudas (datos transaccionales limpios)
+    - dim_producto (dimensión de productos)
+    - ventas_semanales (tabla de hechos modelable, granularidad semanal)
 
-Ver `.claude/skills/etl-pipeline/SKILL.md` para los detalles.
+Como respaldo, este módulo también puede leer el CSV directo (sin pasar por Hop)
+mediante `run_etl_desde_csv()`, útil para desarrollo o si Hop no está disponible.
+
+Ver `.claude/skills/etl-pipeline/SKILL.md` para el detalle de cada paso.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
 CSV_DEFAULT = BASE_DIR / "data" / "raw" / "ventas_construnorte.csv"
 
+# Columnas útiles del CSV (Hop debe seleccionar estas 17, descartando las personales)
 COLUMNAS_UTILES_CSV = [
     "Fecha", "Item", "Nombre Item", "Referencia Item", "Codigo Barra Item",
     "Unidad Inventario 1 Item", "Proveedor Codigo Item", "Proveedor Nombre Item",
@@ -29,6 +38,7 @@ COLUMNAS_UTILES_CSV = [
     "Cantidad 1", "Precio Uni", "Valor Bruto", "Valor Costo", "Peso",
 ]
 
+# Mapeo CSV → nombre interno (lo aplica Hop en el step "Select Values")
 RENAMES = {
     "Fecha": "fecha",
     "Item": "item",
@@ -49,13 +59,30 @@ RENAMES = {
     "Peso": "peso",
 }
 
-# ⚠️ CONFIRMAR con ConstruNorte cuáles tipos de documento corresponden a venta efectiva
+# ⚠️ Confirmar con ConstruNorte cuáles tipos corresponden a venta efectiva
 TIPOS_DOC_VENTA = ["J1"]
 
 
+# =====================================================================
+# 1. Lectura (dos fuentes posibles)
+# =====================================================================
+
+def leer_staging(engine: Engine) -> pd.DataFrame:
+    """Lee la tabla `ventas_staging` cargada previamente por Apache Hop."""
+    logger.info("Leyendo ventas_staging (cargada por Apache Hop)...")
+    df = pd.read_sql("SELECT * FROM ventas_staging", engine)
+    df = df.drop(columns=["id", "fecha_carga"], errors="ignore")
+    logger.info("ventas_staging leida: %s filas", f"{len(df):,}")
+    return df
+
+
 def leer_csv(ruta_csv: Path = CSV_DEFAULT) -> pd.DataFrame:
-    """Lee el CSV crudo retiendo solo las columnas útiles."""
-    logger.info("Leyendo CSV: %s", ruta_csv)
+    """Lee el CSV directamente (modo standalone, sin pasar por Hop).
+
+    Solo se usa para desarrollo o si Apache Hop no esta disponible.
+    En produccion el flujo oficial es leer desde `ventas_staging`.
+    """
+    logger.info("Leyendo CSV directo: %s", ruta_csv)
     df = pd.read_csv(
         ruta_csv,
         sep=";",
@@ -64,18 +91,20 @@ def leer_csv(ruta_csv: Path = CSV_DEFAULT) -> pd.DataFrame:
         encoding="utf-8",
     )
     df = df.rename(columns=RENAMES)
-    logger.info("CSV leído: %d filas, %d columnas", len(df), len(df.columns))
+    logger.info("CSV leido: %s filas, %d columnas", f"{len(df):,}", len(df.columns))
     return df
 
 
+# =====================================================================
+# 2. Tipificacion y limpieza (siempre se ejecuta en Python)
+# =====================================================================
+
 def normalizar_tipos(df: pd.DataFrame) -> pd.DataFrame:
-    """Convierte tipos: fecha, numéricos, normaliza strings."""
+    """Convierte tipos: fecha (YYYYMMDD), numericos con coma decimal, strings."""
     logger.info("Normalizando tipos...")
 
-    # Fecha en formato YYYYMMDD
     df["fecha"] = pd.to_datetime(df["fecha"], format="%Y%m%d", errors="coerce")
 
-    # Numéricos: reemplazar coma decimal por punto
     columnas_numericas = ["cantidad", "precio_unitario", "valor_bruto", "valor_costo", "peso"]
     for col in columnas_numericas:
         df[col] = (
@@ -85,7 +114,6 @@ def normalizar_tipos(df: pd.DataFrame) -> pd.DataFrame:
         )
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Strings: trim + upper para identificadores
     for col in ["item", "centro_operacion", "tipo_documento"]:
         df[col] = df[col].astype(str).str.strip().str.upper()
 
@@ -93,29 +121,33 @@ def normalizar_tipos(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def limpiar(df: pd.DataFrame) -> pd.DataFrame:
-    """Aplica limpieza: filtrado de tipo doc, cantidades positivas, duplicados."""
+    """Filtra tipo doc, cantidades positivas y duplicados."""
     logger.info("Limpiando datos...")
     n_inicial = len(df)
 
     df = df[df["tipo_documento"].isin(TIPOS_DOC_VENTA)].copy()
-    logger.info("Tras filtrar tipo_documento ∈ %s: %d filas", TIPOS_DOC_VENTA, len(df))
+    logger.info("Tras filtrar tipo_documento en %s: %s filas", TIPOS_DOC_VENTA, f"{len(df):,}")
 
     df = df[df["cantidad"] > 0].copy()
     df = df[df["valor_bruto"] >= 0].copy()
-    logger.info("Tras filtrar cantidad>0 y valor>=0: %d filas", len(df))
+    logger.info("Tras filtrar cantidad>0 y valor>=0: %s filas", f"{len(df):,}")
 
     df = df.dropna(subset=["fecha", "item"]).copy()
-    logger.info("Tras eliminar nulos en fecha/item: %d filas", len(df))
+    logger.info("Tras eliminar nulos en fecha/item: %s filas", f"{len(df):,}")
 
     df = df.drop_duplicates()
-    logger.info("Tras drop_duplicates: %d filas", len(df))
+    logger.info("Tras drop_duplicates: %s filas", f"{len(df):,}")
 
-    logger.info("Limpieza terminada: %d → %d filas", n_inicial, len(df))
+    logger.info("Limpieza terminada: %s -> %s filas", f"{n_inicial:,}", f"{len(df):,}")
     return df
 
 
+# =====================================================================
+# 3. Cargas a las tablas destino
+# =====================================================================
+
 def cargar_ventas_crudas(df: pd.DataFrame, engine: Engine) -> int:
-    """Trunca y carga la tabla ventas_crudas. Devuelve el conteo final."""
+    """Trunca y carga `ventas_crudas` (datos limpios y tipificados)."""
     logger.info("Cargando a ventas_crudas...")
     with engine.begin() as conn:
         conn.execute(text("TRUNCATE TABLE ventas_crudas"))
@@ -136,7 +168,7 @@ def cargar_ventas_crudas(df: pd.DataFrame, engine: Engine) -> int:
 
 
 def construir_dim_producto(df: pd.DataFrame, engine: Engine) -> int:
-    """Construye dim_producto a partir de las ventas crudas."""
+    """Construye `dim_producto` a partir de los datos limpios."""
     logger.info("Construyendo dim_producto...")
     dim = (
         df.groupby("item")
@@ -165,7 +197,7 @@ def construir_dim_producto(df: pd.DataFrame, engine: Engine) -> int:
 
 
 def construir_ventas_semanales(df: pd.DataFrame, engine: Engine) -> int:
-    """Agrega a granularidad (item × centro × año × semana) y carga a MySQL."""
+    """Agrega a granularidad (item x centro x anio x semana) y carga a MySQL."""
     logger.info("Agregando a granularidad semanal...")
 
     df = df.copy()
@@ -203,10 +235,41 @@ def construir_ventas_semanales(df: pd.DataFrame, engine: Engine) -> int:
     return int(n)
 
 
-def run_etl(ruta_csv: Path = CSV_DEFAULT) -> None:
-    """Ejecuta el pipeline ETL completo."""
+# =====================================================================
+# 4. Pipelines completos
+# =====================================================================
+
+def run_etl_desde_staging() -> None:
+    """Pipeline oficial: parte de `ventas_staging` (cargada por Apache Hop).
+
+    Prerequisito: el flujo `hop/ingesta_csv.hpl` ya se ejecuto y dejo la
+    tabla ventas_staging poblada.
+    """
     logger.info("=" * 60)
-    logger.info("Inicio del pipeline ETL")
+    logger.info("ETL desde ventas_staging (cargada por Apache Hop)")
+    logger.info("=" * 60)
+
+    engine = get_engine()
+    df = leer_staging(engine)
+    df = normalizar_tipos(df)
+    df = limpiar(df)
+
+    cargar_ventas_crudas(df, engine)
+    construir_dim_producto(df, engine)
+    construir_ventas_semanales(df, engine)
+
+    logger.info("=" * 60)
+    logger.info("ETL finalizado correctamente")
+    logger.info("=" * 60)
+
+
+def run_etl_desde_csv(ruta_csv: Path = CSV_DEFAULT) -> None:
+    """Pipeline alternativo: lee el CSV directamente, sin pasar por Hop.
+
+    Util para desarrollo o cuando Apache Hop no esta disponible.
+    """
+    logger.info("=" * 60)
+    logger.info("ETL desde CSV directo (modo standalone, sin Hop)")
     logger.info("=" * 60)
 
     engine = get_engine()
@@ -219,14 +282,40 @@ def run_etl(ruta_csv: Path = CSV_DEFAULT) -> None:
     construir_ventas_semanales(df, engine)
 
     logger.info("=" * 60)
-    logger.info("Pipeline ETL finalizado correctamente")
+    logger.info("ETL finalizado correctamente")
     logger.info("=" * 60)
 
 
+def run_etl() -> None:
+    """Alias del pipeline oficial (desde staging)."""
+    run_etl_desde_staging()
+
+
 if __name__ == "__main__":
+    import argparse
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(message)s",
         datefmt="%H:%M:%S",
     )
-    run_etl()
+
+    parser = argparse.ArgumentParser(description="Pipeline ETL ConstruNorte")
+    parser.add_argument(
+        "--modo",
+        choices=["staging", "csv"],
+        default="staging",
+        help="staging: lee de ventas_staging (post-Hop). csv: lee CSV directo.",
+    )
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=CSV_DEFAULT,
+        help="Ruta al CSV (solo aplica si --modo csv).",
+    )
+    args = parser.parse_args()
+
+    if args.modo == "staging":
+        run_etl_desde_staging()
+    else:
+        run_etl_desde_csv(args.csv)

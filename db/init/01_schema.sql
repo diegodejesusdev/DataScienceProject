@@ -6,8 +6,36 @@
 USE construnorte;
 
 -- ============================================================
--- 1. ventas_crudas — datos transaccionales sin agregar
+-- 0. ventas_staging — tabla de ingesta cruda (cargada por Apache Hop)
+-- Todas las columnas como VARCHAR para evitar errores de tipificación en Hop.
+-- Python toma esta tabla, tipifica, limpia y la pasa a ventas_crudas.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ventas_staging (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    fecha VARCHAR(20),
+    item VARCHAR(50),
+    nombre_item VARCHAR(255),
+    referencia_item VARCHAR(100),
+    codigo_barra VARCHAR(50),
+    unidad_inventario VARCHAR(20),
+    proveedor_codigo VARCHAR(50),
+    proveedor_nombre VARCHAR(255),
+    nombre_linea_n1 VARCHAR(100),
+    nombre_linea_n2 VARCHAR(100),
+    centro_operacion VARCHAR(20),
+    tipo_documento VARCHAR(20),
+    cantidad VARCHAR(40),
+    precio_unitario VARCHAR(40),
+    valor_bruto VARCHAR(40),
+    valor_costo VARCHAR(40),
+    peso VARCHAR(40),
+    fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 1. ventas_crudas — datos transaccionales tipificados y limpios
 -- Granularidad: 1 fila = 1 línea de remisión/venta
+-- Origen: Python toma ventas_staging, tipifica y limpia
 -- ============================================================
 CREATE TABLE IF NOT EXISTS ventas_crudas (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
