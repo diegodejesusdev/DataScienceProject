@@ -101,7 +101,46 @@ Registro de las decisiones de arquitectura y stack del proyecto. Sirve para la s
 - Hop con un solo flujo cumple el requisito de uso de herramienta ETL sin sacrificar productividad.
 
 **División concreta:**
-- **Hop hace SOLO:** lectura del CSV → filtrado de las 17 columnas útiles (descarta las personales) → carga a `ventas_staging` en MySQL. 3 pasos visuales: `Text File Input → Select Values → Table Output`.
-- **Python hace todo lo demás:** desde `ventas_staging` → tipificación → limpieza → filtrado por tipo de documento → construcción de `ventas_crudas`, `dim_producto`, `ventas_semanales`.
+- **Hop hace SOLO:** lectura del CSV → filtrado de las 15 columnas útiles (descarta las personales, peso, código de barras y demás) → carga a `ventas_staging` en MySQL. 3 pasos visuales: `Text File Input → Select Values → Table Output`.
+- **Python hace todo lo demás:** desde `ventas_staging` → tipificación → filtrado por tipo de documento → filtrado por periodo → construcción de `ventas_crudas`, `dim_producto`, `ventas_semanales`.
 
 Esta separación da lo mejor de ambos mundos: lo visual y demostrable para el evaluador, y la mantenibilidad de código Python para el equipo.
+
+---
+
+## Decisiones sobre el dataset
+
+### Columnas descartadas
+
+- **Datos personales** (`Cliente`, `Nombre_Cliente`, `Direccion_Cliente`, `Nit_Cliente`, `Ciudad_Cliente`, `Ciudad_Descripcion_Cliente`, `Nombre_Criterio_Cliente_1`, `Vendedor`, `Nombre_Vendedor`, `Cedula_Vendedor`): se descartan en cumplimiento de la Ley 1581 de 2012 (Habeas Data) de Colombia.
+- **Documentos internos** (`Documento_Remision`, `Documento_Ventas`, `Documento_Pedido`): identificadores de transacciones que no aportan al modelo predictivo ni al dashboard.
+- **Variables de control** (`Lapso`, `Cargue`, `Centro_de_Operacion_RM`, `Fecha_Remision`, `Fecha_Pedido`): metadatos operativos sin valor analítico.
+- **`Codigo_Barra_Item`**: en la muestra inicial del CSV viene vacía en la gran mayoría de registros. No es feature ni dimensión de análisis.
+- **`Peso`**: el equipo identificó que la información de esta columna no es verídica (probablemente por errores en la captura del peso en el ERP). Incluirla podría confundir interpretaciones futuras.
+- **`Tipo_de_Documento`**: se mantiene en `ventas_staging` para que Python pueda filtrar las ventas efectivas, pero se descarta antes de cargar `ventas_crudas` porque no es feature predictiva.
+
+### Filtros aplicados en Python
+
+**Por tipo de documento** (variable `TIPOS_DOC_VENTA = ["1E", "2E", "3E"]` en `src/etl.py`):
+
+Después de revisar con ConstruNorte la semántica de cada tipo:
+
+| Tipo | Significado | Decisión |
+|---|---|---|
+| `1E`, `2E`, `3E` | Ventas con facturación electrónica (una por bodega) | **Retener** |
+| `J1`, `B1`, `L1` | Ventas previas a facturación electrónica — solo existen hasta noviembre 2022 | No aplica (fuera del periodo 2024-2025) |
+| `CM` | Conversión de mercancía (~89 registros) | Descartar |
+| `CT` | Cotizaciones (intención de compra, no venta efectiva) | Descartar |
+| `EN` | Devoluciones | Descartar (modelamos solo ventas brutas) |
+
+Como el periodo de análisis es 2024-2025 estricto y `J1/B1/L1` solo aparecen hasta noviembre de 2022, en la práctica solo retenemos `1E`, `2E` y `3E`.
+
+**Por periodo de análisis** (`FECHA_MIN = 2024-01-01`, `FECHA_MAX = 2025-12-31`):
+
+El CSV contiene registros de 2022, salta a 2024-2025 y tiene los primeros meses de 2026 incompletos. Se decidió modelar **únicamente el periodo continuo y completo 2024-2025** por:
+
+- **Coherencia con el anteproyecto:** el alcance académico aprobado cubre exactamente ese periodo.
+- **Calidad de los datos:** los registros de 2022 son aislados y probablemente reflejan un catálogo y patrones de demanda distintos a los actuales (incluyen tipos de documento previos a facturación electrónica que aplicaron a otra realidad operativa).
+- **Completitud:** los datos de 2026 son parciales (solo los primeros meses) e introducirían sesgo en las métricas de evaluación.
+
+Esta decisión se documenta también en `docs/03_preparacion_datos.md` y se reporta en el EDA del notebook `02_eda.ipynb`.

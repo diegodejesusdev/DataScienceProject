@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS ventas_staging (
     item VARCHAR(50),
     nombre_item VARCHAR(255),
     referencia_item VARCHAR(100),
-    codigo_barra VARCHAR(50),
     unidad_inventario VARCHAR(20),
     proveedor_codigo VARCHAR(50),
     proveedor_nombre VARCHAR(255),
@@ -28,7 +27,6 @@ CREATE TABLE IF NOT EXISTS ventas_staging (
     precio_unitario VARCHAR(40),
     valor_bruto VARCHAR(40),
     valor_costo VARCHAR(40),
-    peso VARCHAR(40),
     fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -43,25 +41,21 @@ CREATE TABLE IF NOT EXISTS ventas_crudas (
     item VARCHAR(50) NOT NULL,
     nombre_item VARCHAR(255),
     referencia_item VARCHAR(100),
-    codigo_barra VARCHAR(50),
     unidad_inventario VARCHAR(20),
     proveedor_codigo VARCHAR(50),
     proveedor_nombre VARCHAR(255),
     nombre_linea_n1 VARCHAR(100),
     nombre_linea_n2 VARCHAR(100),
     centro_operacion VARCHAR(20),
-    tipo_documento VARCHAR(20),
     cantidad DECIMAL(18,4),
     precio_unitario DECIMAL(18,4),
     valor_bruto DECIMAL(18,4),
     valor_costo DECIMAL(18,4),
-    peso DECIMAL(18,4),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_fecha (fecha),
     INDEX idx_item (item),
     INDEX idx_fecha_item (fecha, item),
-    INDEX idx_centro (centro_operacion),
-    INDEX idx_tipo_doc (tipo_documento)
+    INDEX idx_centro (centro_operacion)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
