@@ -14,17 +14,43 @@ Este archivo le dice a Claude Code todo lo que necesita saber para trabajar en e
 **Tutor:** Ing. Francisco Javier Obando.
 **Plazo:** 4 semanas (entrega 28 de mayo de 2026).
 
-**Problema de negocio:** ConstruNorte (comercializadora de materiales de construcción) tiene ~600.000 registros transaccionales de 2024-2025 pero no sabe qué productos rotan más, ni puede anticipar la demanda futura. Esto provoca quiebres de stock en productos importantes y sobreinventario en productos lentos.
+### Pregunta de investigación
 
-**Objetivo general:** Desarrollar un sistema analítico predictivo basado en machine learning que pronostique la demanda y caracterice la rotación de productos comercializados por ConstruNorte, mediante el análisis de sus datos transaccionales del periodo enero 2024 – diciembre 2025.
+> ¿Cómo puede un modelo de machine learning, entrenado con datos transaccionales de CONSTRUNORTE COMERCIALIZADORA S.A.S. del período 2024–2025, pronosticar la demanda futura por producto e identificar patrones de rotación que contribuyan a la toma de decisiones sobre aprovisionamiento y organización de bodega?
 
-**Objetivos específicos:**
-- **OE1.** Comprender el contexto comercial, logístico e identificar fuentes y patrones iniciales mediante un EDA.
-- **OE2.** Preparar los datos (limpieza, depuración, transformación, construcción de variables).
-- **OE3.** Construir modelos de machine learning para pronóstico de demanda, evaluando su desempeño.
-- **OE4.** Evaluar resultados y patrones de rotación mediante indicadores, tablas y visualizaciones que orienten la organización de bodega.
+### Objetivo general
 
-**Tipo de análisis:** Predictivo (forecasting de demanda) con apoyo descriptivo (clasificación ABC/XYZ).
+Desarrollar un modelo de machine learning para pronosticar la demanda futura por producto en CONSTRUNORTE COMERCIALIZADORA S.A.S., mediante la aplicación de la metodología CRISP-DM sobre datos transaccionales del período 2024–2025, con el fin de generar insumos analíticos sobre demanda y rotación que apoyen las decisiones de aprovisionamiento y organización de bodega.
+
+### Objetivos específicos
+
+- **OE1.** Comprender el contexto comercial, logístico y de inventario de CONSTRUNORTE COMERCIALIZADORA S.A.S., así como los datos transaccionales disponibles del período 2024–2025, mediante la identificación de fuentes de información, y la realización de un análisis exploratorio de datos —EDA— que permita reconocer patrones iniciales de venta y rotación de productos.
+- **OE2.** Preparar los datos transaccionales mediante procesos de limpieza, depuración, transformación y construcción de variables, con el fin de generar un conjunto de datos adecuado para el análisis y modelado predictivo.
+- **OE3.** Construir modelos de machine learning para pronosticar la demanda futura por producto, evaluando su desempeño mediante métricas de precisión que permitan seleccionar el modelo más adecuado para apoyar decisiones de aprovisionamiento.
+- **OE4.** Evaluar los resultados del pronóstico y los patrones de rotación de productos mediante indicadores, tablas y visualizaciones, con el fin de generar insumos analíticos que orienten la organización de bodega y la toma de decisiones logísticas.
+
+### Estructura en dos temas (según guía metodológica del programa)
+
+El proyecto integra dos enfoques complementarios sobre el mismo dataset:
+
+| Tema | Enfoque | Lo que produce | Sirve para apoyar... |
+|---|---|---|---|
+| **Tema 1** | Descriptivo | Clasificación ABC/XYZ + dashboard de rotación | Decisiones de organización de bodega |
+| **Tema 2** | Predictivo | Modelo de forecasting + pronósticos semanales | Decisiones de aprovisionamiento |
+
+**El enfoque principal del proyecto es el predictivo (Tema 2).** El descriptivo (Tema 1) es complementario y se entrega como dashboard sencillo.
+
+### Alcance del equipo (delimitación crítica)
+
+Este equipo **NO toma decisiones operativas ni de negocio**. El equipo **entrega insumos analíticos** (predicciones, clasificaciones, métricas, visualizaciones). La organización ConstruNorte es quien decide qué hacer con esa información.
+
+Reglas de redacción derivadas:
+- ✅ "para apoyar decisiones de aprovisionamiento" / "para orientar la organización de bodega"
+- ✅ "insumo analítico que oriente..."
+- ❌ NO escribir "para reorganizar la bodega" / "para hacer pedidos" / "para decidir compras"
+- ❌ NO redactar como si el equipo ejecutara acciones operativas
+
+Esta delimitación aplica a **todo** lo que se genere: informe, notebooks, dashboard, anexo de requerimientos.
 
 ---
 
@@ -244,6 +270,7 @@ Antes de empezar cualquier tarea técnica, **lee la skill correspondiente**. Cad
 | `time-series-modeling/` | Antes de entrenar LightGBM, XGBoost o Prophet |
 | `evaluation-metrics/` | Antes de calcular o reportar MAE/RMSE/MAPE |
 | `notebook-style/` | Antes de crear o modificar un notebook |
+| `requirements-style/` | Antes de redactar épicas, historias de usuario o requerimientos de datos en docs/ |
 
 ---
 
