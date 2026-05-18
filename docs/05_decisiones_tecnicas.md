@@ -135,12 +135,33 @@ Después de revisar con ConstruNorte la semántica de cada tipo:
 
 Como el periodo de análisis es 2024-2025 estricto y `J1/B1/L1` solo aparecen hasta noviembre de 2022, en la práctica solo retenemos `1E`, `2E` y `3E`.
 
-**Por periodo de análisis** (`FECHA_MIN = 2024-01-01`, `FECHA_MAX = 2025-12-31`):
+**Por periodo de análisis** (`FECHA_MIN = 2024-01-01`, `FECHA_MAX = 2026-03-31`):
 
-El CSV contiene registros de 2022, salta a 2024-2025 y tiene los primeros meses de 2026 incompletos. Se decidió modelar **únicamente el periodo continuo y completo 2024-2025** por:
+La auditoría inicial del dataset evidenció tres bloques temporales con calidad distinta:
 
-- **Coherencia con el anteproyecto:** el alcance académico aprobado cubre exactamente ese periodo.
-- **Calidad de los datos:** los registros de 2022 son aislados y probablemente reflejan un catálogo y patrones de demanda distintos a los actuales (incluyen tipos de documento previos a facturación electrónica que aplicaron a otra realidad operativa).
-- **Completitud:** los datos de 2026 son parciales (solo los primeros meses) e introducirían sesgo en las métricas de evaluación.
+| Bloque | Filas | Decisión |
+|---|---|---|
+| **2022** | 22.611 | Descartado |
+| **2024–2025** | 543.808 | Periodo principal de modelado |
+| **2026-Q1** (enero–marzo) | 75.213 | Test extendido (datos del "futuro real") |
+| **2026-04** (parcial) | 18.950 | Descartado |
 
-Esta decisión se documenta también en `docs/03_preparacion_datos.md` y se reporta en el EDA del notebook `02_eda.ipynb`.
+**Justificaciones:**
+
+- **2022 descartado:** los registros son aislados (no hay continuidad con 2023, que falta totalmente) y reflejan un contexto operativo distinto. Los tipos de documento `J1/B1/L1` propios de ese año (anteriores a la facturación electrónica) confirman que las dinámicas de captura de datos cambiaron. Mezclarlos con 2024-2025 introduciría sesgo en los lags y en las estadísticas por SKU.
+
+- **2024-2025 como periodo principal de modelado:** corresponde al alcance acordado en el anteproyecto. Son 24 meses continuos y completos.
+
+- **2026-Q1 como test extendido (decisión metodológica clave):** los tres primeros meses de 2026 están completos y representan datos posteriores al periodo de modelado, por lo que constituyen una prueba "out of sample real" — el modelo no los vio durante el entrenamiento. Esto fortalece la evaluación metodológica del proyecto sin alterar el periodo de entrenamiento acordado.
+
+- **2026-04 descartado:** la consulta `SELECT MAX(fecha) FROM ventas_staging WHERE SUBSTRING(fecha, 1, 4) = '2026'` devolvió 20260424. Abril 2026 está incompleto (solo hasta el día 24), por lo que se excluye para no sesgar la prueba.
+
+**Partición temporal resultante:**
+
+| Conjunto | Periodo | Uso |
+|---|---|---|
+| Train | 2024-01-01 → 2025-09-30 | Entrenamiento |
+| Validation | 2025-10-01 → 2025-12-31 | Ajuste de hiperparámetros |
+| Test 2026 | 2026-01-01 → 2026-03-31 | Evaluación final out-of-sample |
+
+Esta estrategia respeta el alcance del anteproyecto (modelar 2024-2025) y al mismo tiempo aprovecha los datos de 2026-Q1 como prueba adicional de generalización temporal.

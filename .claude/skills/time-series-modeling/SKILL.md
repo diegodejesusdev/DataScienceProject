@@ -14,15 +14,19 @@ description: Cómo entrenar correctamente modelos de pronóstico de demanda (bas
 
 ---
 
-## Partición temporal recomendada
+## Particion temporal recomendada
 
-Dado el periodo del proyecto (ene 2024 – dic 2025, ~104 semanas):
+Dado el alcance del proyecto y la auditoria del dataset:
 
-| Conjunto | Periodo | Uso |
-|---|---|---|
-| Train | 2024-01-01 → 2025-09-30 | Entrenar modelos |
-| Validation | 2025-10-01 → 2025-10-31 | Ajustar hiperparámetros |
-| Test | 2025-11-01 → 2025-12-31 | Evaluación final, NO TOCAR durante el desarrollo |
+| Conjunto | Periodo | Semanas | Uso |
+|---|---|---|---|
+| Train | 2024-01-01 → 2025-09-30 | 91 | Entrenar modelos |
+| Validation | 2025-10-01 → 2025-12-31 | 13 | Ajuste de hiperparametros, early stopping |
+| Test 2026 | 2026-01-01 → 2026-03-31 | 13 | Evaluacion final out-of-sample (datos del "futuro real") |
+
+El test 2026 NO se usa en ningun momento del desarrollo. Solo se evalua una vez,
+al final, para reportar el desempeño definitivo del modelo en datos posteriores
+al periodo de entrenamiento.
 
 ```python
 import pandas as pd
@@ -30,13 +34,17 @@ import pandas as pd
 FECHA_FIN_TRAIN = "2025-09-30"
 FECHA_FIN_VALID = "2025-10-31"
 
+FECHA_FIN_TRAIN = "2025-09-30"
+FECHA_FIN_VALID = "2025-12-31"
+FECHA_FIN_TEST = "2026-03-31"
+
 train = df[df["fecha_inicio_semana"] <= FECHA_FIN_TRAIN]
 valid = df[(df["fecha_inicio_semana"] > FECHA_FIN_TRAIN) & (df["fecha_inicio_semana"] <= FECHA_FIN_VALID)]
-test = df[df["fecha_inicio_semana"] > FECHA_FIN_VALID]
+test_2026 = df[(df["fecha_inicio_semana"] > FECHA_FIN_VALID) & (df["fecha_inicio_semana"] <= FECHA_FIN_TEST)]
 
 print(f"Train: {len(train):,} filas ({train['fecha_inicio_semana'].min()} → {train['fecha_inicio_semana'].max()})")
 print(f"Valid: {len(valid):,} filas")
-print(f"Test:  {len(test):,} filas")
+print(f"Test:  {len(test_2026):,} filas")
 ```
 
 ---

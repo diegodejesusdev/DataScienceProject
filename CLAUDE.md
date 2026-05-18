@@ -29,6 +29,25 @@ Desarrollar un modelo de machine learning para pronosticar la demanda futura por
 - **OE3.** Construir modelos de machine learning para pronosticar la demanda futura por producto, evaluando su desempeño mediante métricas de precisión que permitan seleccionar el modelo más adecuado para apoyar decisiones de aprovisionamiento.
 - **OE4.** Evaluar los resultados del pronóstico y los patrones de rotación de productos mediante indicadores, tablas y visualizaciones, con el fin de generar insumos analíticos que orienten la organización de bodega y la toma de decisiones logísticas.
 
+### Periodo de análisis (validado con auditoría del dataset)
+
+El dataset crudo abarca tres bloques de fechas:
+
+| Bloque | Filas | Tratamiento |
+|---|---|---|
+| 2022 | 22.611 | Descartado (anterior a facturación electrónica, descontinuo) |
+| 2024–2025 | 543.808 | **Periodo principal de modelado** |
+| 2026-01 a 2026-03 | 75.213 | **Test extendido** ("futuro real", no visto en entrenamiento) |
+| 2026-04 (parcial) | 18.950 | Descartado (solo hasta el 24/04, mes incompleto) |
+
+**Partición temporal definitiva:**
+
+Train:        2024-01-01 → 2025-09-30   (21 meses)
+Validation:   2025-10-01 → 2025-12-31   ( 3 meses, ajuste de hiperparámetros)
+Test 2026:    2026-01-01 → 2026-03-31   ( 3 meses, generalización temporal)
+
+El **periodo de modelado sigue siendo 2024-2025** conforme al anteproyecto. Los datos de Q1 2026 se usan **adicionalmente** como prueba "out of sample real" para demostrar que el modelo generaliza a datos no vistos. Esto fortalece la defensa metodológica del proyecto.
+
 ### Estructura en dos temas (según guía metodológica del programa)
 
 El proyecto integra dos enfoques complementarios sobre el mismo dataset:

@@ -69,7 +69,9 @@ Desarrollar un modelo de machine learning para pronosticar la demanda futura por
 
 ### Delimitación temporal
 
-Aunque el dataset original contiene registros parciales de 2022 y de los primeros meses de 2026, el análisis se restringe estrictamente al período **enero 2024 – diciembre 2025**, por las razones documentadas en `docs/05_decisiones_tecnicas.md`.
+El periodo de modelado del proyecto es **enero 2024 – diciembre 2025**, conforme al alcance acordado en el anteproyecto. Adicionalmente, los datos del primer trimestre de 2026 (enero–marzo) se utilizan como conjunto de test extendido para evaluar la capacidad de generalización temporal del modelo, sin ser empleados durante el entrenamiento.
+
+Los registros de 2022 y de abril 2026 (parcial, hasta el día 24) se descartan por las razones documentadas en `docs/05_decisiones_tecnicas.md`.
 
 ## 7. Aclaración sobre el rol del equipo
 

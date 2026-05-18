@@ -39,35 +39,58 @@ FEATURES_DEFAULT = [
 TARGET = "cantidad_total"
 
 
+# Fechas de corte de la particion temporal del proyecto
+FECHA_FIN_TRAIN = "2025-09-30"   # train: 2024-01-01 -> 2025-09-30
+FECHA_FIN_VALID = "2025-12-31"   # valid: 2025-10-01 -> 2025-12-31
+FECHA_FIN_TEST = "2026-03-31"    # test 2026 (futuro real): 2026-01-01 -> 2026-03-31
+
+
 def partir_temporal(
     df: pd.DataFrame,
-    fecha_fin_train: str,
-    fecha_fin_valid: str,
+    fecha_fin_train: str = FECHA_FIN_TRAIN,
+    fecha_fin_valid: str = FECHA_FIN_VALID,
+    fecha_fin_test: str | None = FECHA_FIN_TEST,
     col_fecha: str = "fecha_inicio_semana",
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Particiona el DataFrame en train/valid/test por fecha.
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Particiona el DataFrame en train / valid / test_2025 / test_2026 por fecha.
+
+    Estrategia (validada con auditoria del dataset):
+      - train: 2024-01-01 a fecha_fin_train
+      - valid: (fecha_fin_train, fecha_fin_valid] (3 meses Q4 2025)
+      - test_2025: subconjunto de valid usado como test interno del proyecto
+      - test_2026: (fecha_fin_valid, fecha_fin_test] - datos del "futuro real"
+        no usados durante el entrenamiento. Sirve para evaluar generalizacion
+        temporal del modelo.
 
     Args:
         df: DataFrame con las features y el target.
-        fecha_fin_train: fecha máxima del set de entrenamiento (ISO string).
-        fecha_fin_valid: fecha máxima del set de validación (ISO string).
+        fecha_fin_train: fecha maxima del set de entrenamiento (ISO string).
+        fecha_fin_valid: fecha maxima del set de validacion (ISO string).
+        fecha_fin_test: fecha maxima del set de test 2026. Si None, no se separa.
 
     Returns:
-        Tupla (train, valid, test).
+        Tupla (train, valid, test_2025, test_2026).
+        test_2025 = valid (alias) para mantener compatibilidad con flujos previos.
     """
     train = df[df[col_fecha] <= fecha_fin_train].copy()
     valid = df[(df[col_fecha] > fecha_fin_train) & (df[col_fecha] <= fecha_fin_valid)].copy()
-    test = df[df[col_fecha] > fecha_fin_valid].copy()
 
-    logger.info("Train: %s filas (%s → %s)", f"{len(train):,}",
+    if fecha_fin_test is not None:
+        test_2026 = df[
+            (df[col_fecha] > fecha_fin_valid) & (df[col_fecha] <= fecha_fin_test)
+        ].copy()
+    else:
+        test_2026 = df.iloc[0:0].copy()  # DataFrame vacio con la misma estructura
+
+    logger.info("Train:      %s filas (%s -> %s)", f"{len(train):,}",
                 train[col_fecha].min(), train[col_fecha].max())
-    logger.info("Valid: %s filas (%s → %s)", f"{len(valid):,}",
+    logger.info("Valid:      %s filas (%s -> %s)", f"{len(valid):,}",
                 valid[col_fecha].min() if len(valid) else "—",
                 valid[col_fecha].max() if len(valid) else "—")
-    logger.info("Test:  %s filas (%s → %s)", f"{len(test):,}",
-                test[col_fecha].min() if len(test) else "—",
-                test[col_fecha].max() if len(test) else "—")
-    return train, valid, test
+    logger.info("Test 2026:  %s filas (%s -> %s)", f"{len(test_2026):,}",
+                test_2026[col_fecha].min() if len(test_2026) else "—",
+                test_2026[col_fecha].max() if len(test_2026) else "—")
+    return train, valid, valid, test_2026
 
 
 def predecir_baseline_media_movil(df_eval: pd.DataFrame) -> np.ndarray:

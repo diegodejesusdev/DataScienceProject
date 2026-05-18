@@ -35,7 +35,7 @@ def get_engine() -> Engine:
         ValueError: si faltan variables obligatorias en el .env.
     """
     host = os.getenv("MYSQL_HOST", "localhost")
-    port = os.getenv("MYSQL_PORT", "3306")
+    port = os.getenv("MYSQL_PORT", "3307")
     user = os.getenv("MYSQL_USER")
     password = os.getenv("MYSQL_PASSWORD")
     database = os.getenv("MYSQL_DATABASE")

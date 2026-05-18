@@ -363,7 +363,7 @@ Este problema se aborda mediante un **enfoque predictivo** basado en machine lea
 | Variables o dimensiones involucradas | Todas las features generadas en RD-04 |
 | Métricas requeridas | MAE, RMSE, MAPE, sMAPE en validación y test, globales y por segmento ABC/XYZ |
 | Nivel de granularidad | SKU × centro × semana |
-| Filtros o criterios | Partición temporal: train hasta 2025-09-30, valid octubre 2025, test noviembre-diciembre 2025 |
+| Filtros o criterios | Partición temporal estricta: train 2024-01 a 2025-09, validation Q4 2025, test 2026 (enero-marzo). Los datos de 2022 y abril 2026 (parcial) se descartan. |
 | Fuente de datos | Dataset preparado en RD-04 |
 | Transformaciones requeridas | Partición temporal, entrenamiento con early stopping, predicciones con `np.clip(0, None)` para evitar valores negativos |
 | Técnica o método sugerido | Baseline + LightGBM (principal) + XGBoost (comparación) + Prophet (top 50 SKUs A) |

@@ -44,13 +44,19 @@ CSV_DEFAULT = BASE_DIR / "data" / "raw" / "ventas_construnorte.csv"
 # al periodo 2024-2025, queda fuera y se reporta en la auditoria.
 TIPOS_DOC_VENTA = ["1E", "2E", "3E"]
 
-# Periodo de analisis acordado en el anteproyecto:
-# El dataset tiene 2022, salto, 2024-2025, y primeros meses de 2026.
-# Solo modelamos el periodo continuo y completo: 2024-2025 estricto.
-# Datos de 2022 (pre-facturacion electronica) y 2026 (incompletos) quedan fuera.
+# Periodo de analisis (decision validada con auditoria del dataset):
+#
+# El dataset abarca tres bloques de fechas:
+#   2022 (22.611 filas)   — anterior a facturacion electronica, descontinuo
+#   2024-2025 (543.808)   — periodo principal de modelado, continuo y completo
+#   2026-01 a 2026-03     — meses completos, util como test "fuera de muestra real"
+#   2026-04 (parcial)     — solo hasta el dia 24, se descarta por incompletitud
+#
+# Decision: se modela el periodo 2024-2025 segun el anteproyecto y se evalua
+# adicionalmente sobre 2026-Q1 como prueba de generalizacion temporal.
 FECHA_MIN = "2024-01-01"
-FECHA_MAX = "2025-12-31"
-
+FECHA_MAX = "2026-03-31"      # incluye Q1 2026 como test extendido
+FECHA_FIN_PERIODO_BASE = "2025-12-31"   # corte original del anteproyecto
 
 # =====================================================================
 # 1. Lectura (dos fuentes posibles)
