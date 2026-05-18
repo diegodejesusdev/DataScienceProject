@@ -49,6 +49,7 @@ Thumbs.db
 # Reportes generados
 reports/figures/*.png
 reports/figures/*.jpg
+reports/figures/*.html
 !reports/figures/.gitkeep
 
 # Logs
