@@ -50,6 +50,7 @@ Thumbs.db
 reports/figures/*.png
 reports/figures/*.jpg
 reports/figures/*.html
+reports/*.xlsx
 !reports/figures/.gitkeep
 
 # Logs
