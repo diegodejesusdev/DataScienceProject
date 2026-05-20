@@ -52,6 +52,7 @@ reports/figures/*.jpg
 reports/figures/*.html
 reports/*.xlsx
 reports/figures/abc_xyz/*.png
+reports/figures/*
 !reports/figures/.gitkeep
 
 # Logs
