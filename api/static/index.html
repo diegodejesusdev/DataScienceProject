@@ -1,20 +1,639 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="bg-slate-900">
 <head>
   <meta charset="UTF-8">
-  <title>ConstruNorte — Frontend en construcción</title>
-  <style>
-    body { font-family: sans-serif; background: #0F172A; color: #F1F5F9;
-           display: flex; align-items: center; justify-content: center;
-           height: 100vh; margin: 0; }
-    a { color: #9B59B6; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConstruNorte — Sistema de Pronóstico de Demanda</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-  <div style="text-align:center">
-    <h1>ConstruNorte API</h1>
-    <p>Backend operativo. Frontend en fase 3.</p>
-    <p><a href="/docs">Ver Swagger UI →</a></p>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen" x-data="app()" x-init="init()" x-cloak>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────────────── -->
+<header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
+  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div>
+      <span class="text-base font-bold text-slate-100">ConstruNorte</span>
+      <span class="ml-2 text-sm text-slate-500">Sistema de Pronóstico de Demanda · Unicomfacauca · 2026</span>
+    </div>
+    <span class="text-xs text-slate-600 hidden sm:block">LightGBM · MySQL · FastAPI</span>
   </div>
+</header>
+
+<!-- ── TABS ────────────────────────────────────────────────────────────────── -->
+<nav class="border-b border-slate-800 bg-slate-900 sticky top-[53px] z-10">
+  <div class="max-w-7xl mx-auto px-6 flex gap-1 overflow-x-auto">
+    <template x-for="t in tabs" :key="t.id">
+      <button
+        @click="switchTab(t.id)"
+        :class="tab === t.id
+          ? 'border-b-2 border-purple-500 text-slate-100'
+          : 'border-b-2 border-transparent text-slate-400 hover:text-slate-200'"
+        class="flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors">
+        <i :data-lucide="t.icon" class="w-4 h-4 shrink-0"></i>
+        <span x-text="t.label"></span>
+      </button>
+    </template>
+  </div>
+</nav>
+
+<!-- ── CONTENIDO ────────────────────────────────────────────────────────────── -->
+<main class="max-w-7xl mx-auto px-6 py-6">
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB 1 — RESUMEN
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div x-show="tab === 'resumen'" class="space-y-6">
+
+    <!-- Error -->
+    <div x-show="errorRes" class="bg-red-900/30 border border-red-800 rounded-xl p-4">
+      <p class="text-red-300 text-sm" x-text="'Error: ' + errorRes"></p>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <template x-if="loadingRes">
+        <template x-for="i in 4" :key="i">
+          <div class="h-24 skeleton"></div>
+        </template>
+      </template>
+      <template x-if="!loadingRes && resumen">
+        <!-- SKUs activos -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">SKUs activos</p>
+          <p class="text-3xl font-bold tabular-nums" x-text="fmt(resumen.total_skus_activos)"></p>
+          <p class="text-xs text-slate-500 mt-1">de 4,282 en el catálogo</p>
+        </div>
+        <!-- Modelo recomendado -->
+        <div class="bg-slate-800/50 border border-purple-900/40 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Modelo recomendado</p>
+          <p class="text-3xl font-bold text-purple-400">LightGBM</p>
+          <p class="text-xs text-slate-500 mt-1">mejor MAE en test 2026</p>
+        </div>
+        <!-- MAE test 2026 -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">MAE · Test 2026</p>
+          <p class="text-3xl font-bold tabular-nums text-emerald-400" x-text="kpiMaeLightgbm != null ? kpiMaeLightgbm.toFixed(2) : '—'"></p>
+          <p class="text-xs text-slate-500 mt-1">unidades promedio de error</p>
+        </div>
+        <!-- Mejora vs baseline -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Mejora vs Baseline</p>
+          <p class="text-3xl font-bold tabular-nums text-emerald-400" x-text="kpiMejora != null ? '+' + kpiMejora.toFixed(1) + '%' : '—'"></p>
+          <p class="text-xs text-slate-500 mt-1">reducción de MAE global</p>
+        </div>
+      </template>
+    </div>
+
+    <!-- Gráfico comparación modelos -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">MAE en Test 2026 — Comparación de modelos</h2>
+      <div x-show="loadingRes" class="h-36 skeleton"></div>
+      <div x-show="!loadingRes">
+        <canvas id="barChart" height="130"></canvas>
+        <p class="text-xs text-slate-500 mt-3">Comparación sobre los 2,310 SKUs activos. Prophet se evaluó solo sobre top 50 SKUs clase A (ver sección Modelos).</p>
+      </div>
+    </div>
+
+    <!-- Top SKUs estrella + Donut ABC -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      <!-- Top SKUs estrella -->
+      <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Top SKUs estrella (clase A, segmento AX/AY)</h2>
+        <div x-show="loadingRes" class="space-y-2">
+          <template x-for="i in 5" :key="i"><div class="h-9 skeleton"></div></template>
+        </div>
+        <div x-show="!loadingRes && resumen" class="space-y-2">
+          <template x-for="sku in resumen?.skus_estrella?.items" :key="sku.item">
+            <div class="flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0">
+              <div>
+                <span class="text-xs font-mono text-slate-400 mr-2" x-text="sku.item"></span>
+                <span class="text-sm text-slate-200" x-text="sku.nombre.slice(0,38)"></span>
+              </div>
+              <span class="text-sm font-medium text-slate-300 tabular-nums shrink-0 ml-2"
+                    x-text="'$' + fmt(sku.valor_total / 1e6, 0) + 'M'"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Donut distribución ABC -->
+      <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Distribución ABC por número de SKUs</h2>
+        <div x-show="loadingRes" class="h-52 skeleton"></div>
+        <div x-show="!loadingRes">
+          <canvas id="donutChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB 2 — PRONÓSTICOS
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div x-show="tab === 'pronosticos'" class="space-y-5">
+
+    <!-- Filtros -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex flex-wrap gap-4 items-end">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Semana</label>
+        <select x-model="topFecha" @change="loadTop()"
+          class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+          <template x-for="s in semanas" :key="s">
+            <option :value="s" x-text="s"></option>
+          </template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Centro</label>
+        <select x-model="topCentro" @change="loadTop()"
+          class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+          <option value="">Todos</option>
+          <option value="001">001</option>
+          <option value="002">002</option>
+          <option value="003">003</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Top N</label>
+        <select x-model.number="topLimit" @change="loadTop()"
+          class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+        </select>
+      </div>
+      <p class="text-xs text-slate-500 self-end pb-2">Haz clic en una fila para ver la serie del SKU.</p>
+    </div>
+
+    <!-- Error -->
+    <div x-show="errorTop" class="bg-red-900/30 border border-red-800 rounded-xl p-4">
+      <p class="text-red-300 text-sm" x-text="'Error: ' + errorTop"></p>
+    </div>
+
+    <!-- Skeletons -->
+    <div x-show="loadingTop" class="space-y-2">
+      <template x-for="i in 8" :key="i"><div class="h-10 skeleton"></div></template>
+    </div>
+
+    <!-- Tabla -->
+    <div x-show="!loadingTop && topData" class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700 text-xs text-slate-400 uppercase tracking-wide">
+              <th class="px-4 py-3 text-left">#</th>
+              <th class="px-4 py-3 text-left">Código</th>
+              <th class="px-4 py-3 text-left">Producto</th>
+              <th class="px-4 py-3 text-left">Centro</th>
+              <th class="px-4 py-3 text-right">Pronóstico</th>
+              <th class="px-4 py-3 text-right">Real</th>
+              <th class="px-4 py-3 text-center">Clase</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, idx) in topData?.items" :key="row.item + row.centro_operacion">
+              <tr class="border-b border-slate-700/50 tr-hover" @click="openSKU(row.item)">
+                <td class="px-4 py-3 text-slate-500 tabular-nums" x-text="idx + 1"></td>
+                <td class="px-4 py-3 font-mono text-xs text-slate-400" x-text="row.item"></td>
+                <td class="px-4 py-3 text-slate-200 max-w-xs truncate" x-text="row.nombre_item"></td>
+                <td class="px-4 py-3 text-slate-400" x-text="row.centro_operacion"></td>
+                <td class="px-4 py-3 text-right font-medium tabular-nums text-purple-300"
+                    x-text="fmt(row.cantidad_pronosticada, 0)"></td>
+                <td class="px-4 py-3 text-right tabular-nums text-slate-300"
+                    x-text="row.cantidad_real != null ? fmt(row.cantidad_real, 0) : '—'"></td>
+                <td class="px-4 py-3 text-center">
+                  <span :class="badgeABC(row.clase_abc)"
+                    class="text-xs font-bold px-2 py-0.5 rounded" x-text="row.clase_abc || '—'"></span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB 3 — MODELOS
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div x-show="tab === 'modelos'" class="space-y-5">
+
+    <!-- Filtros -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex flex-wrap gap-4 items-end">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Split</label>
+        <select x-model="metSplit" @change="loadMetricas()"
+          class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+          <option value="test_2026">Test 2026 (ene–mar)</option>
+          <option value="valid">Validation (oct–dic 2025)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Segmento</label>
+        <select x-model="metSegmento" @change="loadMetricas()"
+          class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+          <option value="global">Global (2,310 SKUs)</option>
+          <option value="abc_A">Clase A (97 SKUs)</option>
+          <option value="abc_B">Clase B (365 SKUs)</option>
+          <option value="abc_C">Clase C (1,918 SKUs)</option>
+          <option value="top50_clase_A">Top 50 SKUs clase A</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Skeleton -->
+    <div x-show="loadingMet" class="space-y-2">
+      <template x-for="i in 5" :key="i"><div class="h-12 skeleton"></div></template>
+    </div>
+
+    <!-- Error -->
+    <div x-show="errorMet" class="bg-red-900/30 border border-red-800 rounded-xl p-4">
+      <p class="text-red-300 text-sm" x-text="'Error: ' + errorMet"></p>
+    </div>
+
+    <!-- Tabla de métricas -->
+    <div x-show="!loadingMet && metricasData" class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700 text-xs text-slate-400 uppercase tracking-wide">
+              <th class="px-5 py-3 text-left">Modelo</th>
+              <th class="px-5 py-3 text-right">MAE</th>
+              <th class="px-5 py-3 text-right">RMSE</th>
+              <th class="px-5 py-3 text-right">MAPE %</th>
+              <th class="px-5 py-3 text-right">sMAPE %</th>
+              <th class="px-5 py-3 text-right">Mejora vs baseline</th>
+              <th class="px-5 py-3 text-right">Obs.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="m in metricasData?.modelos" :key="m.modelo">
+              <tr class="border-b border-slate-700/50">
+                <td class="px-5 py-3">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0"
+                          :style="`background:${{'baseline_ma4':'#E67E22','lightgbm':'#9B59B6','xgboost':'#16A085','prophet':'#E91E63'}[m.modelo] || '#64748b'}`"></span>
+                    <span class="font-medium" x-text="m.nombre_amigable"></span>
+                    <span x-show="m.modelo === metricasData.modelo_recomendado"
+                          class="text-xs bg-purple-900/50 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded">recomendado</span>
+                  </div>
+                </td>
+                <td class="px-5 py-3 text-right tabular-nums"
+                    :class="m.mae === bestMae() ? 'text-emerald-400 font-semibold' : 'text-slate-300'"
+                    x-text="m.mae.toFixed(2)"></td>
+                <td class="px-5 py-3 text-right tabular-nums text-slate-300" x-text="fmt(m.rmse, 2)"></td>
+                <td class="px-5 py-3 text-right tabular-nums text-slate-300" x-text="m.mape.toFixed(1)"></td>
+                <td class="px-5 py-3 text-right tabular-nums text-slate-300" x-text="m.smape.toFixed(1)"></td>
+                <td class="px-5 py-3 text-right tabular-nums"
+                    :class="m.mejora_vs_baseline_pct > 0 ? 'text-emerald-400 font-medium' : 'text-slate-500'"
+                    x-text="m.mejora_vs_baseline_pct != null ? fmtPct(m.mejora_vs_baseline_pct) : '—'"></td>
+                <td class="px-5 py-3 text-right tabular-nums text-slate-500" x-text="fmt(m.n_obs)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <div class="px-5 py-3 bg-slate-900/30 border-t border-slate-700">
+        <p class="text-xs text-slate-500">
+          Nota: el segmento "Top 50 SKUs clase A" solo incluye Prophet. Para comparación completa de 3 modelos, selecciona "Global" o una clase ABC.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB 4 — CLASIFICACIÓN
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div x-show="tab === 'clasificacion'" class="space-y-6">
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div x-show="loadingRes" class="col-span-4 h-24 skeleton"></div>
+      <template x-if="!loadingRes && resumen">
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Total SKUs</p>
+          <p class="text-3xl font-bold tabular-nums" x-text="fmt(resumen.total_skus_activos)"></p>
+        </div>
+        <div class="bg-slate-800/50 border border-emerald-900/40 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Clase A</p>
+          <p class="text-3xl font-bold tabular-nums text-emerald-400"
+             x-text="fmt(resumen.distribucion_abc.A?.num_skus)"></p>
+          <p class="text-xs text-slate-500 mt-1"
+             x-text="resumen.distribucion_abc.A?.porcentaje_skus?.toFixed(1) + '% del portafolio'"></p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">% valor en clase A</p>
+          <p class="text-3xl font-bold tabular-nums text-amber-400"
+             x-text="resumen.distribucion_abc.A?.porcentaje_valor?.toFixed(1) + '%'"></p>
+        </div>
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">SKUs clase CZ</p>
+          <p class="text-3xl font-bold tabular-nums text-slate-400"
+             x-text="fmt(resumen.matriz_segmentos.find(s => s.clase_abc==='C' && s.clase_xyz==='Z')?.num_skus)"></p>
+          <p class="text-xs text-slate-500 mt-1">baja rotación, demanda errática</p>
+        </div>
+      </template>
+    </div>
+
+    <!-- Heatmap ABC × XYZ + Tabla estrella -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      <!-- Heatmap -->
+      <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Matriz ABC × XYZ — número de SKUs</h2>
+        <div x-show="loadingRes" class="h-48 skeleton"></div>
+        <div x-show="!loadingRes && resumen">
+          <!-- Encabezado columnas -->
+          <div class="grid grid-cols-4 gap-2 mb-2 text-center text-xs font-semibold text-slate-400">
+            <div></div>
+            <div>X</div><div>Y</div><div>Z</div>
+          </div>
+          <!-- Filas A, B, C -->
+          <template x-for="abc in ['A','B','C']" :key="abc">
+            <div class="grid grid-cols-4 gap-2 mb-2 items-center">
+              <div class="text-xs font-semibold text-slate-400 text-right pr-2" x-text="abc"></div>
+              <template x-for="xyz in ['X','Y','Z']" :key="xyz">
+                <div :class="heatClass(abc, xyz)"
+                     class="rounded-lg p-3 text-center transition-colors cursor-default"
+                     :title="`${abc}${xyz}: ${heatCell(abc, xyz).num_skus} SKUs`">
+                  <p class="text-lg font-bold tabular-nums" x-text="fmt(heatCell(abc, xyz).num_skus)"></p>
+                  <p class="text-xs opacity-70">SKUs</p>
+                </div>
+              </template>
+            </div>
+          </template>
+          <p class="text-xs text-slate-500 mt-3">Color: mayor intensidad = mayor número de SKUs en el segmento.</p>
+        </div>
+      </div>
+
+      <!-- Top 5 estrella -->
+      <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Top 5 SKUs estrella (AX / AY)</h2>
+        <div x-show="loadingRes" class="space-y-2">
+          <template x-for="i in 5" :key="i"><div class="h-12 skeleton"></div></template>
+        </div>
+        <div x-show="!loadingRes && resumen" class="space-y-3">
+          <template x-for="(sku, idx) in resumen?.skus_estrella?.items" :key="sku.item">
+            <div class="flex items-start justify-between border-b border-slate-700/50 pb-3 last:border-0 last:pb-0">
+              <div class="flex items-start gap-3">
+                <span class="text-lg font-bold text-slate-600 tabular-nums w-5 shrink-0" x-text="idx + 1"></span>
+                <div>
+                  <p class="text-sm font-medium text-slate-200" x-text="sku.nombre.slice(0,40)"></p>
+                  <p class="text-xs text-slate-500 font-mono" x-text="sku.item"></p>
+                </div>
+              </div>
+              <span class="text-sm font-semibold text-emerald-400 tabular-nums shrink-0 ml-2"
+                    x-text="'$' + fmt(sku.valor_total / 1e9, 1) + 'B'"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB 5 — INSIGHTS
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div x-show="tab === 'insights'" class="space-y-5">
+
+    <!-- Sub-tabs -->
+    <div class="flex gap-2">
+      <button @click="switchInsightsTab('crecimiento')"
+        :class="insightsTab === 'crecimiento' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:text-slate-200'"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+        Crecimiento proyectado
+      </button>
+      <button @click="switchInsightsTab('alertas')"
+        :class="insightsTab === 'alertas' ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:text-slate-200'"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+        Alertas de cambio drástico
+      </button>
+    </div>
+
+    <!-- ── Crecimiento ── -->
+    <div x-show="insightsTab === 'crecimiento'" class="space-y-4">
+
+      <!-- Filtros crecimiento -->
+      <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex flex-wrap gap-4 items-end">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Semana objetivo</label>
+          <select x-model="crecFecha" @change="loadCrecimiento()"
+            class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+            <template x-for="s in semanas.slice(13)" :key="s">
+              <option :value="s" x-text="s"></option>
+            </template>
+          </select>
+        </div>
+        <div class="flex items-center gap-2 pb-1">
+          <input type="checkbox" id="crecAB" x-model="crecSoloAB" @change="loadCrecimiento()"
+            class="rounded border-slate-600 bg-slate-700 text-purple-500">
+          <label for="crecAB" class="text-sm text-slate-300">Solo clase A y B</label>
+        </div>
+        <p class="text-xs text-slate-500 self-end pb-1.5">Filtros: pred ≥ 50 uds · promedio previo ≥ 10 uds · cap 500%.</p>
+      </div>
+
+      <!-- Skeleton -->
+      <div x-show="loadingCrec" class="space-y-2">
+        <template x-for="i in 8" :key="i"><div class="h-10 skeleton"></div></template>
+      </div>
+
+      <!-- Error -->
+      <div x-show="errorCrec" class="bg-red-900/30 border border-red-800 rounded-xl p-4">
+        <p class="text-red-300 text-sm" x-text="'Error: ' + errorCrec"></p>
+      </div>
+
+      <!-- Tabla crecimiento -->
+      <div x-show="!loadingCrec && crecData" class="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-700 text-xs text-slate-400 uppercase tracking-wide">
+                <th class="px-4 py-3 text-left">Producto</th>
+                <th class="px-4 py-3 text-left">Centro</th>
+                <th class="px-4 py-3 text-right">Pronóstico</th>
+                <th class="px-4 py-3 text-right">Promedio 4 sem.</th>
+                <th class="px-4 py-3 text-right">Variación</th>
+                <th class="px-4 py-3 text-center">Clase</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="row in crecData?.items" :key="row.item + row.centro_operacion">
+                <tr class="border-b border-slate-700/50">
+                  <td class="px-4 py-3">
+                    <p class="text-slate-200 truncate max-w-xs" x-text="row.nombre_item.slice(0,36)"></p>
+                    <p class="text-xs text-slate-500 font-mono" x-text="row.item"></p>
+                  </td>
+                  <td class="px-4 py-3 text-slate-400" x-text="row.centro_operacion"></td>
+                  <td class="px-4 py-3 text-right tabular-nums text-purple-300 font-medium"
+                      x-text="fmt(row.prediccion_proxima_semana, 0)"></td>
+                  <td class="px-4 py-3 text-right tabular-nums text-slate-400"
+                      x-text="fmt(row.promedio_4_semanas_previas, 0)"></td>
+                  <td class="px-4 py-3 text-right tabular-nums font-semibold"
+                      :class="colorCambio(row.crecimiento_pct)">
+                    <span x-text="flechaCambio(row.crecimiento_pct)"></span>
+                    <span x-text="' ' + Math.abs(row.crecimiento_pct).toFixed(0) + '%'"></span>
+                    <span x-show="row.crecimiento_extremo" class="ml-1 text-xs text-slate-500">+</span>
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <span :class="badgeABC(row.clase_abc)"
+                      class="text-xs font-bold px-2 py-0.5 rounded" x-text="row.clase_abc || '—'"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <div x-show="crecData?.items?.length === 0" class="px-5 py-8 text-center text-slate-500 text-sm">
+          Sin resultados para los filtros actuales.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Alertas ── -->
+    <div x-show="insightsTab === 'alertas'" class="space-y-4">
+
+      <!-- Filtros alertas -->
+      <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex flex-wrap gap-4 items-end">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Semana objetivo</label>
+          <select x-model="alertasFecha" @change="loadAlertas()"
+            class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+            <template x-for="s in semanas.slice(13)" :key="s">
+              <option :value="s" x-text="s"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Umbral de cambio</label>
+          <select x-model.number="alertasUmbral" @change="loadAlertas()"
+            class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2">
+            <option :value="50">50%</option>
+            <option :value="100">100%</option>
+            <option :value="200">200%</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2 pb-1">
+          <input type="checkbox" id="alertasAB" x-model="alertasSoloAB" @change="loadAlertas()"
+            class="rounded border-slate-600 bg-slate-700 text-purple-500">
+          <label for="alertasAB" class="text-sm text-slate-300">Solo clase A y B</label>
+        </div>
+      </div>
+
+      <!-- Resumen severidad -->
+      <div x-show="!loadingAlertas && alertasData" class="flex gap-3">
+        <div class="bg-red-900/20 border border-red-900 rounded-lg px-4 py-2 text-center">
+          <p class="text-xl font-bold text-red-400 tabular-nums" x-text="alertasData?.resumen_severidad?.alta"></p>
+          <p class="text-xs text-red-500">Alta</p>
+        </div>
+        <div class="bg-amber-900/20 border border-amber-900 rounded-lg px-4 py-2 text-center">
+          <p class="text-xl font-bold text-amber-400 tabular-nums" x-text="alertasData?.resumen_severidad?.media"></p>
+          <p class="text-xs text-amber-600">Media</p>
+        </div>
+        <div class="bg-blue-900/20 border border-blue-900 rounded-lg px-4 py-2 text-center">
+          <p class="text-xl font-bold text-blue-400 tabular-nums" x-text="alertasData?.resumen_severidad?.baja"></p>
+          <p class="text-xs text-blue-600">Baja</p>
+        </div>
+        <p class="text-xs text-slate-500 self-end pb-1 ml-2"
+           x-text="alertasData?.total_alertas + ' alertas totales para ' + alertasData?.fecha_objetivo"></p>
+      </div>
+
+      <!-- Skeleton alertas -->
+      <div x-show="loadingAlertas" class="space-y-3">
+        <template x-for="i in 5" :key="i"><div class="h-20 skeleton"></div></template>
+      </div>
+
+      <!-- Cards alertas -->
+      <div x-show="!loadingAlertas && alertasData" class="space-y-3">
+        <template x-for="a in alertasData?.alertas" :key="a.item + a.centro_operacion">
+          <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span :class="badgeSeveridad(a.severidad)"
+                        class="text-xs font-bold px-2 py-0.5 rounded uppercase">
+                    <span x-text="a.severidad"></span>
+                  </span>
+                  <span class="text-xs font-mono text-slate-400" x-text="a.item"></span>
+                  <span :class="badgeABC(a.clase_abc)"
+                        class="text-xs font-bold px-2 py-0.5 rounded" x-text="a.clase_abc || '—'"></span>
+                  <span class="text-xs text-slate-500" x-text="'Centro ' + a.centro_operacion"></span>
+                </div>
+                <p class="text-sm font-medium text-slate-200 truncate" x-text="a.nombre_item"></p>
+                <p class="text-sm text-slate-400 mt-1" x-text="a.mensaje"></p>
+                <p class="text-xs text-slate-500 mt-1" x-text="a.accion_sugerida"></p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-xl font-bold tabular-nums"
+                   :class="a.tipo_alerta === 'pico_proyectado' ? 'text-emerald-400' : 'text-red-400'"
+                   x-text="fmt(a.prediccion_actual, 0)"></p>
+                <p class="text-xs text-slate-500">vs <span x-text="fmt(a.promedio_historico, 0)"></span> prom.</p>
+              </div>
+            </div>
+          </div>
+        </template>
+        <div x-show="alertasData?.alertas?.length === 0" class="text-center py-8 text-slate-500 text-sm">
+          Sin alertas para los filtros actuales.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── DRAWER: Serie de un SKU ───────────────────────────────────────────────── -->
+<div x-show="drawerOpen" x-cloak
+  class="fixed inset-0 z-40 flex justify-end"
+  @keydown.escape.window="closeSKU()">
+
+  <!-- Overlay -->
+  <div class="absolute inset-0 bg-black/60" @click="closeSKU()"></div>
+
+  <!-- Panel -->
+  <div class="relative w-full max-w-2xl bg-slate-900 border-l border-slate-700 flex flex-col shadow-2xl z-50">
+
+    <!-- Header drawer -->
+    <div class="flex items-start justify-between p-5 border-b border-slate-700">
+      <div>
+        <p class="text-xs font-mono text-slate-400" x-text="skuData?.item"></p>
+        <h3 class="text-base font-semibold text-slate-100 mt-0.5" x-text="skuData?.nombre_item || '...'"></h3>
+        <div class="flex items-center gap-2 mt-1">
+          <span x-show="skuData?.clase_abc" :class="badgeABC(skuData?.clase_abc)"
+                class="text-xs font-bold px-2 py-0.5 rounded" x-text="skuData?.clase_abc"></span>
+          <span class="text-xs text-slate-500" x-text="skuData?.segmento_abc_xyz"></span>
+          <span class="text-xs text-slate-500" x-text="skuData?.linea"></span>
+        </div>
+      </div>
+      <button @click="closeSKU()" aria-label="Cerrar"
+        class="text-slate-400 hover:text-slate-200 transition-colors shrink-0 ml-4">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Body drawer -->
+    <div class="flex-1 overflow-y-auto p-5">
+      <div x-show="skuLoading" class="h-60 skeleton"></div>
+      <div x-show="skuError" class="text-red-400 text-sm" x-text="skuError"></div>
+      <div x-show="!skuLoading && !skuError && skuData">
+        <div style="position:relative; height:280px;">
+          <canvas id="skuChart"></canvas>
+        </div>
+        <p class="text-xs text-slate-500 mt-3">
+          Línea azul = demanda real · Morado = LightGBM · Naranja discontinuo = Baseline (MA-4).<br>
+          La predicción cubre los splits <em>validation</em> (oct–dic 2025) y <em>test 2026</em> (ene–mar 2026).
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

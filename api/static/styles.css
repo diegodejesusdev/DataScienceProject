@@ -1,1 +1,37 @@
-/* ConstruNorte — estilos custom (Tailwind overrides) */
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0F172A; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+[x-cloak] { display: none !important; }
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 8px;
+}
+
+canvas { display: block; }
+
+.heat-xs  { background: #1e293b; }
+.heat-sm  { background: #1a4731; }
+.heat-md  { background: #166534; }
+.heat-lg  { background: #ca8a04; }
+.heat-xl  { background: #c0392b; }
+
+.tr-hover:hover { background: rgba(30,41,59,0.6); cursor: pointer; }
+
+.badge-a { background:#27AE60;color:#fff; }
+.badge-b { background:#F39C12;color:#fff; }
+.badge-c { background:#475569;color:#cbd5e1; }
+
+.badge-alta   { background:#7f1d1d; color:#fca5a5; border:1px solid #991b1b; }
+.badge-media  { background:#78350f; color:#fcd34d; border:1px solid #92400e; }
+.badge-baja   { background:#1e3a5f; color:#93c5fd; border:1px solid #1d4ed8; }

@@ -129,6 +129,13 @@ class ClasificacionResumenResponse(BaseModel):
 
 # ── /api/insights/crecimiento ─────────────────────────────────────────────────
 
+class FiltrosAplicados(BaseModel):
+    min_cantidad_prediccion: float
+    min_promedio_historico: float
+    cap_crecimiento_pct: float
+    solo_clase_ab: bool
+
+
 class InsightCrecimientoItem(BaseModel):
     item: str
     nombre_item: str
@@ -138,12 +145,14 @@ class InsightCrecimientoItem(BaseModel):
     promedio_4_semanas_previas: float
     crecimiento_unidades: float
     crecimiento_pct: float
+    crecimiento_extremo: bool
     clase_abc: Optional[str] = None
     tipo_cambio: str
 
 
 class InsightCrecimientoResponse(BaseModel):
     fecha_objetivo: str
+    filtros_aplicados: FiltrosAplicados
     items: list[InsightCrecimientoItem]
 
 
@@ -159,6 +168,7 @@ class Alerta(BaseModel):
     mensaje: str
     prediccion_actual: float
     promedio_historico: float
+    crecimiento_pct_real: float
     accion_sugerida: str
 
 
@@ -171,6 +181,7 @@ class ResumenSeveridad(BaseModel):
 class AlertasResponse(BaseModel):
     fecha_objetivo: str
     umbral: float
+    filtros_aplicados: FiltrosAplicados
     alertas: list[Alerta]
     total_alertas: int
     resumen_severidad: ResumenSeveridad
