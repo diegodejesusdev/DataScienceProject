@@ -253,23 +253,38 @@ DataScienceProject/
 | Parámetro | Tipo | Default | Descripción |
 |---|---|---|---|
 | `fecha_objetivo` | str | `"2026-01-05"` | Semana a evaluar |
-| `min_cantidad` | float | 50 | Filtrar SKUs con poco volumen |
+| `min_cantidad` | float | 50 | Predicción mínima (unidades) |
+| `min_promedio_historico` | float | **50** | Promedio histórico mínimo — elimina SKUs intermitentes |
+| `solo_clase_ab` | bool | `false` | Filtrar solo clases A y B |
 | `limit` | int | 15 | Top N a retornar |
+
+**Filtros de relevancia operativa (defaults):**
+- `pred_actual >= 50 unidades` — excluye predicciones de bajo volumen
+- `avg_4 >= 50 unidades` — excluye SKUs con promedio histórico insignificante
+- Cap visual de **1.000%** — porcentajes mayores se reportan como `crecimiento_extremo: true`; el valor real siempre está en `crecimiento_pct_real`
 
 **Response shape:**
 ```json
 {
   "fecha_objetivo": "2026-01-05",
+  "filtros_aplicados": {
+    "min_cantidad_prediccion": 50,
+    "min_promedio_historico": 50,
+    "cap_crecimiento_pct": 1000,
+    "solo_clase_ab": false
+  },
   "items": [
     {
       "item": "000XXX",
-      "nombre_item": "TEJA PROTEJA P7",
-      "linea": "CUBIERTAS",
+      "nombre_item": "UNION PVC PRES 3/4",
+      "linea": "TUBERIA",
       "centro_operacion": "001",
-      "prediccion_proxima_semana": 850.0,
-      "promedio_4_semanas_previas": 320.0,
-      "crecimiento_unidades": 530.0,
-      "crecimiento_pct": 165.6,
+      "prediccion_proxima_semana": 748.0,
+      "promedio_4_semanas_previas": 20.0,
+      "crecimiento_unidades": 728.0,
+      "crecimiento_pct": 1000.0,
+      "crecimiento_pct_real": 3640.0,
+      "crecimiento_extremo": true,
       "clase_abc": "B",
       "tipo_cambio": "crecimiento_alto"
     }
@@ -278,7 +293,11 @@ DataScienceProject/
 ```
 
 **Comportamiento:**
-- `tipo_cambio` puede ser `"crecimiento_alto"` (>50%), `"crecimiento_moderado"` (10-50%), `"estable"` (<10% en cualquier dirección), `"decrecimiento_moderado"`, `"decrecimiento_alto"`.
+- Ordenado por `crecimiento_pct_real` descendente (valor real sin cap).
+- `crecimiento_pct`: valor capeado al máximo visual (1.000%) — para mostrar en barras/gráficos.
+- `crecimiento_pct_real`: valor real calculado — puede superar el cap.
+- `crecimiento_extremo: true` cuando el valor real supera el cap visual.
+- `tipo_cambio`: `"crecimiento_alto"` (>50%), `"crecimiento_moderado"` (10–50%), `"estable"` (<10%), `"decrecimiento_moderado"`, `"decrecimiento_alto"` — basado en el valor real.
 
 ---
 
@@ -329,14 +348,31 @@ DataScienceProject/
 | Parámetro | Tipo | Default | Descripción |
 |---|---|---|---|
 | `fecha_objetivo` | str | `"2026-01-05"` | Semana evaluada |
-| `umbral_cambio_pct` | float | 100 | Umbral de cambio (%) para alerta |
-| `solo_clase_a` | bool | `false` | Limitar a SKUs clase A |
+| `umbral_cambio_pct` | float | 100 | Umbral de cambio (%) para activar alerta (mín. 10) |
+| `min_promedio_historico` | float | **50** | Promedio histórico mínimo — evita falsas alarmas |
+| `solo_clase_ab` | bool | `false` | Limitar a SKUs clase A y B |
+| `solo_clase_a` | bool | `false` | Limitar solo a SKUs clase A |
+
+**Filtros de relevancia operativa:**
+- `avg_4 >= 50 unidades` (default) — excluye SKUs casi sin movimiento
+- Cap visual **1.000%** en el campo `mensaje`; el valor real siempre está en `crecimiento_pct_real`
+
+**Severidad** (basada en porcentaje real):
+- `alta`: cambio > 200%
+- `media`: cambio 100–200%
+- `baja`: cambio < 100%
 
 **Response shape:**
 ```json
 {
   "fecha_objetivo": "2026-01-05",
   "umbral": 100,
+  "filtros_aplicados": {
+    "min_cantidad_prediccion": 0,
+    "min_promedio_historico": 50,
+    "cap_crecimiento_pct": 1000,
+    "solo_clase_ab": false
+  },
   "alertas": [
     {
       "item": "000XXX",
@@ -345,25 +381,21 @@ DataScienceProject/
       "clase_abc": "A",
       "tipo_alerta": "pico_proyectado",
       "severidad": "alta",
-      "mensaje": "Se proyecta un crecimiento del 250% vs promedio reciente",
+      "mensaje": "Se proyecta un crecimiento del 250% vs promedio reciente.",
       "prediccion_actual": 5000.0,
       "promedio_historico": 1400.0,
-      "accion_sugerida": "Revisar disponibilidad de stock; coordinar con proveedor"
+      "crecimiento_pct_real": 257.14,
+      "accion_sugerida": "Revisar disponibilidad de stock; coordinar con proveedor."
     }
   ],
   "total_alertas": 12,
-  "resumen_severidad": {
-    "alta": 3,
-    "media": 5,
-    "baja": 4
-  }
+  "resumen_severidad": { "alta": 3, "media": 5, "baja": 4 }
 }
 ```
 
 **Tipos de alerta:**
-- `pico_proyectado`: predicción >2x el promedio reciente.
-- `caida_proyectada`: predicción <0.5x el promedio reciente.
-- `cambio_segmento`: el SKU cambió de comportamiento (errático → estable o viceversa).
+- `pico_proyectado`: crecimiento real > umbral.
+- `caida_proyectada`: decrecimiento real > umbral (en valor absoluto).
 
 ---
 

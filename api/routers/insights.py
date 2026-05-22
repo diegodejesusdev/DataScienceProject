@@ -19,7 +19,7 @@ from api.schemas import (
 
 router = APIRouter()
 
-CAP_PCT = 500.0  # Máximo porcentaje reportado; por encima se marca como extremo
+CAP_PCT = 1000.0  # Máximo porcentaje visual; por encima se marca como extremo
 
 
 def _validar_fecha(fecha: str) -> None:
@@ -135,7 +135,7 @@ def _aplicar_filtros(
 def get_crecimiento(
     fecha_objetivo: str = "2026-01-05",
     min_cantidad: float = 50,
-    min_promedio_historico: float = 10,
+    min_promedio_historico: float = 50,
     solo_clase_ab: bool = False,
     limit: int = 15,
 ) -> InsightCrecimientoResponse:
@@ -183,9 +183,10 @@ def get_crecimiento(
                 promedio_4_semanas_previas=round(float(row.avg_4), 2),
                 crecimiento_unidades=round(float(row.crecimiento_unidades), 2),
                 crecimiento_pct=round(pct_reportado, 2),
+                crecimiento_pct_real=round(pct_real, 2),
                 crecimiento_extremo=extremo,
                 clase_abc=str(row.clase_abc) if row.clase_abc else None,
-                tipo_cambio=_tipo_cambio(pct_reportado),
+                tipo_cambio=_tipo_cambio(pct_real),
             )
         )
 
@@ -212,7 +213,7 @@ def get_crecimiento(
 def get_alertas(
     fecha_objetivo: str = "2026-01-05",
     umbral_cambio_pct: float = 100.0,
-    min_promedio_historico: float = 10.0,
+    min_promedio_historico: float = 50.0,
     solo_clase_a: bool = False,
     solo_clase_ab: bool = False,
 ) -> AlertasResponse:

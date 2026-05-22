@@ -40,8 +40,11 @@ const SEMANAS = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-Chart.defaults.color = COLORES.slate400;
-Chart.defaults.borderColor = COLORES.slate800;
+function configChart() {
+  if (typeof Chart === 'undefined') return;
+  Chart.defaults.color = COLORES.slate400;
+  Chart.defaults.borderColor = COLORES.slate800;
+}
 
 async function apiFetch(path) {
   const res = await fetch(path);
@@ -60,6 +63,17 @@ function fmt(n, decimals = 0) {
 function fmtPct(n) {
   if (n == null) return '—';
   return `${n > 0 ? '+' : ''}${Number(n).toFixed(1)}%`;
+}
+
+function fmtCOP(v) {
+  if (v == null) return '—';
+  if (v >= 1_000_000_000)
+    return '$' + (v / 1_000_000).toLocaleString('es-CO', { maximumFractionDigits: 0 }) + 'M';
+  if (v >= 1_000_000)
+    return '$' + (v / 1_000_000).toLocaleString('es-CO', { maximumFractionDigits: 1 }) + 'M';
+  if (v >= 1_000)
+    return '$' + (v / 1_000).toLocaleString('es-CO', { maximumFractionDigits: 0 }) + 'K';
+  return '$' + Number(v).toFixed(0);
 }
 
 function destroyChart(ref) {
@@ -124,17 +138,14 @@ function app() {
     alertasSoloAB:  true,
 
     // ── instancias de chart ──
-    _barChart:      null,
-    _donutChart:    null,
     _skuChart:      null,
 
     // ─────────────────────────────────────────────────────────────────────────
 
     async init() {
+      configChart();
       await this.loadResumen();
       this.$nextTick(() => {
-        this.initBarChart();
-        this.initDonutChart();
         if (window.lucide) lucide.createIcons();
       });
     },
@@ -177,69 +188,30 @@ function app() {
       return this.metricasGlobal.modelos.find(m => m.modelo === 'lightgbm')?.mejora_vs_baseline_pct;
     },
 
-    initBarChart() {
-      const canvas = document.getElementById('barChart');
-      if (!canvas || !this.metricasGlobal) return;
-      destroyChart(this._barChart);
+    barModelos() {
+      if (!this.metricasGlobal) return [];
       const modelos = this.metricasGlobal.modelos
         .filter(m => m.modelo !== 'prophet')
         .sort((a, b) => b.mae - a.mae);
-      this._barChart = new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: modelos.map(m => NOMBRES_MODELO[m.modelo] || m.nombre_amigable),
-          datasets: [{
-            data:            modelos.map(m => m.mae),
-            backgroundColor: modelos.map(m => COLOR_MODELO[m.modelo] || COLORES.slate700),
-            borderRadius: 5,
-          }],
-        },
-        options: {
-          indexAxis: 'y',
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: { label: ctx => ` MAE: ${ctx.parsed.x.toFixed(2)} unidades` },
-            },
-          },
-          scales: {
-            x: { grid: { color: COLORES.slate800 }, ticks: { color: COLORES.slate400 } },
-            y: { grid: { display: false }, ticks: { color: COLORES.slate400, font: { size: 12 } } },
-          },
-        },
-      });
+      const maxMae = Math.max(...modelos.map(m => m.mae));
+      return modelos.map(m => ({
+        nombre: NOMBRES_MODELO[m.modelo] || m.nombre_amigable,
+        mae:    m.mae,
+        pct:    Math.round((m.mae / maxMae) * 100),
+        color:  COLOR_MODELO[m.modelo] || COLORES.slate700,
+      }));
     },
 
-    initDonutChart() {
-      const canvas = document.getElementById('donutChart');
-      if (!canvas || !this.resumen) return;
-      destroyChart(this._donutChart);
-      const d = this.resumen.distribucion_abc;
-      this._donutChart = new Chart(canvas, {
-        type: 'doughnut',
-        data: {
-          labels: ['Clase A', 'Clase B', 'Clase C'],
-          datasets: [{
-            data: [d.A?.num_skus, d.B?.num_skus, d.C?.num_skus],
-            backgroundColor: [COLORES.verde, '#F39C12', COLORES.slate700],
-            borderWidth: 2,
-            borderColor: '#1e293b',
-          }],
-        },
-        options: {
-          cutout: '68%',
-          plugins: {
-            legend: { position: 'bottom', labels: { color: COLORES.slate400, padding: 16 } },
-            tooltip: {
-              callbacks: {
-                label: ctx => ` ${ctx.label}: ${ctx.parsed} SKUs (${d[ctx.label.slice(-1)]?.porcentaje_skus?.toFixed(1)}%)`,
-              },
-            },
-          },
-        },
-      });
+    get barrasABC() {
+      if (!this.resumen?.distribucion_abc) return [];
+      const dist    = this.resumen.distribucion_abc;
+      const colores = { A: '#27AE60', B: '#F59E0B', C: '#C0392B' };
+      return ['A', 'B', 'C'].map(clase => ({
+        clase,
+        color:      colores[clase],
+        num_skus:   (dist[clase]?.num_skus || 0).toLocaleString('es-CO'),
+        porcentaje: (dist[clase]?.porcentaje_skus || 0).toFixed(1),
+      }));
     },
 
     // ── Pronósticos ───────────────────────────────────────────────────────────
@@ -428,6 +400,7 @@ function app() {
     // ── Helpers UI ────────────────────────────────────────────────────────────
     fmt,
     fmtPct,
+    fmtCOP,
 
     badgeABC(clase) {
       return clase === 'A' ? 'badge-a' : clase === 'B' ? 'badge-b' : 'badge-c';

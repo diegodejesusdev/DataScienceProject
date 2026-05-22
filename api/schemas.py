@@ -145,6 +145,7 @@ class InsightCrecimientoItem(BaseModel):
     promedio_4_semanas_previas: float
     crecimiento_unidades: float
     crecimiento_pct: float
+    crecimiento_pct_real: float
     crecimiento_extremo: bool
     clase_abc: Optional[str] = None
     tipo_cambio: str
