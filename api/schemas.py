@@ -186,3 +186,75 @@ class AlertasResponse(BaseModel):
     alertas: list[Alerta]
     total_alertas: int
     resumen_severidad: ResumenSeveridad
+
+
+# ── /api/descriptivo/lineas-top ───────────────────────────────────────────────
+
+class LineaItem(BaseModel):
+    linea: str
+    num_skus: int
+    valor_total: float
+    pct_valor: float
+
+
+class LineasTopResponse(BaseModel):
+    items: list[LineaItem]
+    total_valor: float
+
+
+# ── /api/descriptivo/pareto ───────────────────────────────────────────────────
+
+class ParetoPunto(BaseModel):
+    pct_skus: float
+    pct_valor_acum: float
+
+
+class ParetoResponse(BaseModel):
+    total_skus: int
+    total_valor: float
+    puntos: list[ParetoPunto]
+    corte_80_pct_skus: float
+    corte_80_num_skus: int
+
+
+# ── /api/descriptivo/diamantes ────────────────────────────────────────────────
+
+class DiamantePunto(BaseModel):
+    segmento: str
+    num_skus: int
+    valor_total: float
+    pct_valor: float
+
+
+class DiamantesResponse(BaseModel):
+    items: list[DiamantePunto]
+    total_valor: float
+
+
+# ── /api/descriptivo/estacionalidad ──────────────────────────────────────────
+
+class EstacionalidadPunto(BaseModel):
+    anio: int
+    mes: int
+    mes_label: str
+    cantidad_total_mes: float
+    cantidad_promedio_sku_semana: float
+
+
+class EstacionalidadResponse(BaseModel):
+    items: list[EstacionalidadPunto]
+
+
+# ── /api/descriptivo/ventas-por-centro ───────────────────────────────────────
+
+class VentasCentro(BaseModel):
+    centro_operacion: str
+    cantidad_total: float
+    valor_total: float
+    pct_cantidad: float
+
+
+class VentasPorCentroResponse(BaseModel):
+    items: list[VentasCentro]
+    total_cantidad: float
+    total_valor: float

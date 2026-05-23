@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import clasificacion, insights, metricas, pronosticos
+from api.routers import clasificacion, descriptivo, insights, metricas, pronosticos
 
 app = FastAPI(
     title="ConstruNorte API",
@@ -31,6 +31,7 @@ app.include_router(pronosticos.router, prefix="/api/pronosticos", tags=["Pronós
 app.include_router(clasificacion.router, prefix="/api/clasificacion", tags=["Clasificación"])
 app.include_router(metricas.router, prefix="/api/metricas", tags=["Métricas"])
 app.include_router(insights.router, prefix="/api/insights", tags=["Insights"])
+app.include_router(descriptivo.router, prefix="/api/descriptivo", tags=["Descriptivo"])
 
 # Servir frontend estático — debe ir DESPUÉS de los routers
 STATIC_DIR = Path(__file__).parent / "static"

@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/lucide@0.441.0/dist/umd/lucide.js"></script>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/colors.js"></script>
   <script src="/app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
 </head>
@@ -92,6 +93,28 @@
       </template>
     </div>
 
+    <!-- Top líneas de producto -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Top 10 líneas de producto por valor comercial</h2>
+      <div x-show="loadingRes" class="h-40 skeleton"></div>
+      <div x-show="!loadingRes && lineasData" class="space-y-2">
+        <template x-for="item in barrasLineas()" :key="item.linea">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400 w-40 text-right shrink-0 leading-tight truncate"
+                  x-text="item.linea"></span>
+            <div class="flex-1 bg-slate-700/40 rounded-full h-5 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-700"
+                   :style="`width:${item.pct}%; background: rgba(31,78,120,${item.opacity})`"></div>
+            </div>
+            <span class="text-xs text-slate-400 tabular-nums w-14 shrink-0 text-right"
+                  x-text="item.pct_valor.toFixed(1) + '%'"></span>
+            <span class="text-xs text-slate-500 tabular-nums w-14 shrink-0 text-right"
+                  x-text="item.num_skus + ' SKUs'"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
     <!-- Comparación modelos (barras CSS) -->
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
       <h2 class="text-sm font-semibold text-slate-300 mb-4">MAE en Test 2026 — Comparación de modelos</h2>
@@ -167,12 +190,71 @@
         </div>
       </div>
     </div>
+
+    <!-- Demanda mensual 2024–2025 -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Demanda mensual 2024–2025 — unidades totales</h2>
+      <div x-show="loadingRes" class="h-36 skeleton"></div>
+      <div x-show="!loadingRes && estacData">
+        <div class="flex items-end gap-0.5 h-28 pb-1">
+          <template x-for="p in estacBars()" :key="p.mes_label">
+            <div class="flex-1 flex flex-col items-center justify-end h-full group relative">
+              <div
+                class="w-full rounded-t-sm transition-all duration-500"
+                :style="`height:${p.pct}%; background: ${p.isPico ? '#10B981' : p.isBajo ? '#F59E0B' : 'rgba(31,78,120,0.7)'}`">
+              </div>
+              <div class="absolute bottom-full mb-1 hidden group-hover:flex flex-col bg-slate-700 border border-slate-600 text-xs text-slate-200 rounded px-2 py-1 whitespace-nowrap z-10 shadow-lg">
+                <span class="font-medium" x-text="p.mes_label"></span>
+                <span x-text="fmt(p.cantidad_total_mes, 0) + ' uds'"></span>
+                <span class="text-slate-400" x-text="'~' + fmt(p.cantidad_promedio_sku_semana, 0) + ' uds/sku·sem'"></span>
+              </div>
+              <span class="text-[8px] text-slate-500 leading-tight mt-0.5 text-center" x-text="p.mes_label"></span>
+            </div>
+          </template>
+        </div>
+        <div class="flex gap-5 mt-2 text-xs text-slate-400">
+          <span class="flex items-center gap-1.5">
+            <span class="w-3 h-2.5 rounded-sm" style="background:#10B981"></span>Mes pico
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="w-3 h-2.5 rounded-sm" style="background:#F59E0B"></span>Mes mínimo
+          </span>
+          <span class="text-slate-500 ml-auto">Pasa el cursor sobre las barras para ver el detalle.</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════════════
        TAB 2 — PRONÓSTICOS
   ═══════════════════════════════════════════════════════════════════════════ -->
   <div x-show="tab === 'pronosticos'" class="space-y-5">
+
+    <!-- Volumen histórico por centro -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Volumen histórico por centro — 2024–2025</h2>
+      <div x-show="loadingCentros" class="h-20 skeleton"></div>
+      <div x-show="!loadingCentros && centrosData" class="space-y-3">
+        <template x-for="c in centrosBars()" :key="c.centro_operacion">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400 w-20 shrink-0">
+              Centro <span class="font-mono" x-text="c.centro_operacion"></span>
+            </span>
+            <div class="flex-1 bg-slate-700/40 rounded-full h-6 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-700"
+                   :style="`width:${c.pct}%; background:${c.color}`"></div>
+            </div>
+            <div class="text-xs tabular-nums shrink-0 text-right w-40">
+              <span class="text-slate-200 font-medium" x-text="fmt(c.cantidad_total, 0)"></span>
+              <span class="text-slate-500"> uds · </span>
+              <span class="text-slate-400" x-text="fmtCOP(c.valor_total)"></span>
+              <span class="text-slate-500 ml-1" x-text="'(' + c.pct_cantidad.toFixed(1) + '%)'"></span>
+            </div>
+          </div>
+        </template>
+        <p class="text-xs text-slate-500 pt-1">Contexto histórico de demanda por sede para interpretar los pronósticos de la tabla inferior.</p>
+      </div>
+    </div>
 
     <!-- Filtros -->
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex flex-wrap gap-4 items-end">
@@ -377,6 +459,21 @@
       </template>
     </div>
 
+    <!-- Curva de Pareto -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-slate-300 mb-1">Curva de Pareto — concentración de valor</h2>
+      <div x-show="paretoData" class="text-xs text-slate-400 mb-3">
+        <span class="font-semibold text-emerald-400" x-text="paretoData?.corte_80_num_skus"></span> SKUs
+        (<span x-text="paretoData?.corte_80_pct_skus?.toFixed(1)"></span>% del portafolio)
+        concentran el 80% del valor comercial del periodo 2024–2025.
+      </div>
+      <div x-show="loadingPareto" class="h-52 skeleton"></div>
+      <div x-show="errorPareto" class="text-red-400 text-sm" x-text="errorPareto"></div>
+      <div x-show="!loadingPareto && paretoData" style="position:relative; height:220px;">
+        <canvas id="paretoChart"></canvas>
+      </div>
+    </div>
+
     <!-- Heatmap ABC × XYZ + Tabla estrella -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -395,16 +492,30 @@
             <div class="grid grid-cols-4 gap-2 mb-2 items-center">
               <div class="text-xs font-semibold text-slate-400 text-right pr-2" x-text="abc"></div>
               <template x-for="xyz in ['X','Y','Z']" :key="xyz">
-                <div :class="heatClass(abc, xyz)"
-                     class="rounded-lg p-3 text-center transition-colors cursor-default"
+                <div :style="heatStyle(abc, xyz)"
+                     class="rounded-lg p-3 text-center transition-all duration-300 cursor-default"
                      :title="`${abc}${xyz}: ${heatCell(abc, xyz).num_skus} SKUs`">
-                  <p class="text-lg font-bold tabular-nums" x-text="fmt(heatCell(abc, xyz).num_skus)"></p>
-                  <p class="text-xs opacity-70">SKUs</p>
+                  <p class="text-lg font-bold tabular-nums text-slate-100" x-text="fmt(heatCell(abc, xyz).num_skus)"></p>
+                  <p class="text-xs text-slate-300">SKUs</p>
                 </div>
               </template>
             </div>
           </template>
-          <p class="text-xs text-slate-500 mt-3">Color: mayor intensidad = mayor número de SKUs en el segmento.</p>
+          <div class="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
+            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+              <span class="w-3 h-3 rounded-sm shrink-0" style="background:#10B981"></span>SKUs estrella (AX/AY)
+            </div>
+            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+              <span class="w-3 h-3 rounded-sm shrink-0" style="background:#6366F1"></span>SKUs estratégicos (AZ/BX/BY)
+            </div>
+            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+              <span class="w-3 h-3 rounded-sm shrink-0" style="background:#64748B"></span>Inventario rutinario (BZ/CX/CY)
+            </div>
+            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+              <span class="w-3 h-3 rounded-sm shrink-0" style="background:#475569"></span>Long tail (CZ)
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Mayor opacidad = mayor número de SKUs en ese segmento.</p>
         </div>
       </div>
 
@@ -618,6 +729,30 @@
         <div x-show="alertasData?.alertas?.length === 0" class="text-center py-8 text-slate-500 text-sm">
           Sin alertas para los filtros actuales.
         </div>
+      </div>
+    </div>
+
+    <!-- Valor por segmento ABC×XYZ -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Valor comercial por segmento ABC×XYZ — 2024–2025</h2>
+      <div x-show="loadingDiamantes" class="h-48 skeleton"></div>
+      <div x-show="errorDiamantes" class="text-red-400 text-sm" x-text="errorDiamantes"></div>
+      <div x-show="!loadingDiamantes && diamantesData" class="space-y-2">
+        <template x-for="d in diamantesBars()" :key="d.segmento">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-mono font-bold w-8 shrink-0"
+                  :style="`color:${d.color}`" x-text="d.segmento"></span>
+            <div class="flex-1 bg-slate-700/40 rounded-full h-5 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-700"
+                   :style="`width:${d.pct}%; background:${d.color}`"></div>
+            </div>
+            <span class="text-xs text-slate-300 tabular-nums w-14 shrink-0 text-right font-medium"
+                  x-text="d.pct_valor.toFixed(1) + '%'"></span>
+            <span class="text-xs text-slate-500 tabular-nums w-16 shrink-0 text-right"
+                  x-text="fmt(d.num_skus) + ' SKUs'"></span>
+          </div>
+        </template>
+        <p class="text-xs text-slate-500 pt-2">Segmentos AY y BX concentran el grueso del valor. CZ (long tail) requiere revisión periódica de stock.</p>
       </div>
     </div>
   </div>

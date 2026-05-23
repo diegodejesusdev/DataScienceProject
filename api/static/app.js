@@ -137,8 +137,26 @@ function app() {
     alertasUmbral:  100,
     alertasSoloAB:  true,
 
+    // ── descriptivo ──
+    lineasData:       null,
+    loadingLineas:    false,
+    errorLineas:      null,
+    estacData:        null,
+    loadingEstac:     false,
+    errorEstac:       null,
+    centrosData:      null,
+    loadingCentros:   false,
+    errorCentros:     null,
+    paretoData:       null,
+    loadingPareto:    false,
+    errorPareto:      null,
+    diamantesData:    null,
+    loadingDiamantes: false,
+    errorDiamantes:   null,
+
     // ── instancias de chart ──
     _skuChart:      null,
+    _paretoChart:   null,
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -156,10 +174,10 @@ function app() {
       if (this.loaded[t]) return;
       this.loaded[t] = true;
       switch (t) {
-        case 'pronosticos':   await this.loadTop(); break;
+        case 'pronosticos':   await Promise.all([this.loadTop(), this.loadCentros()]); break;
         case 'modelos':       await this.loadMetricas(); break;
-        case 'clasificacion': break; // datos ya vienen del resumen
-        case 'insights':      await this.loadCrecimiento(); break;
+        case 'clasificacion': await this.loadPareto(); break;
+        case 'insights':      await Promise.all([this.loadCrecimiento(), this.loadDiamantes()]); break;
       }
     },
 
@@ -168,9 +186,11 @@ function app() {
     async loadResumen() {
       this.loadingRes = true; this.errorRes = null;
       try {
-        [this.resumen, this.metricasGlobal] = await Promise.all([
+        [this.resumen, this.metricasGlobal, this.lineasData, this.estacData] = await Promise.all([
           apiFetch('/api/clasificacion/resumen'),
           apiFetch('/api/metricas/comparacion?split=test_2026&segmento=global'),
+          apiFetch('/api/descriptivo/lineas-top'),
+          apiFetch('/api/descriptivo/estacionalidad'),
         ]);
       } catch (e) {
         this.errorRes = e.message;
@@ -204,11 +224,10 @@ function app() {
 
     get barrasABC() {
       if (!this.resumen?.distribucion_abc) return [];
-      const dist    = this.resumen.distribucion_abc;
-      const colores = { A: '#27AE60', B: '#F59E0B', C: '#C0392B' };
+      const dist = this.resumen.distribucion_abc;
       return ['A', 'B', 'C'].map(clase => ({
         clase,
-        color:      colores[clase],
+        color:      COLORS_ABC[clase],
         num_skus:   (dist[clase]?.num_skus || 0).toLocaleString('es-CO'),
         porcentaje: (dist[clase]?.porcentaje_skus || 0).toFixed(1),
       }));
@@ -345,16 +364,17 @@ function app() {
         || { num_skus: 0, valor_total: 0 };
     },
 
-    heatClass(abc, xyz) {
-      if (!this.resumen) return 'heat-xs';
+    heatStyle(abc, xyz) {
+      const hex = COLORS_SEGMENTO[abc + xyz] || '#334155';
+      if (!this.resumen) return `background-color: ${hex}1a`;
       const maxSkus = Math.max(...this.resumen.matriz_segmentos.map(s => s.num_skus));
-      const cell = this.heatCell(abc, xyz);
-      const r = cell.num_skus / maxSkus;
-      if (r > 0.7) return 'heat-xl';
-      if (r > 0.4) return 'heat-lg';
-      if (r > 0.15) return 'heat-md';
-      if (r > 0.03) return 'heat-sm';
-      return 'heat-xs';
+      const cell    = this.heatCell(abc, xyz);
+      const ratio   = maxSkus > 0 ? cell.num_skus / maxSkus : 0;
+      const alpha   = (0.30 + ratio * 0.65).toFixed(2);
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `background-color: rgba(${r}, ${g}, ${b}, ${alpha})`;
     },
 
     // ── Insights ──────────────────────────────────────────────────────────────
@@ -389,6 +409,149 @@ function app() {
       } finally {
         this.loadingAlertas = false;
       }
+    },
+
+    // ── Descriptivo ───────────────────────────────────────────────────────────
+
+    async loadCentros() {
+      this.loadingCentros = true; this.errorCentros = null;
+      try {
+        this.centrosData = await apiFetch('/api/descriptivo/ventas-por-centro');
+      } catch (e) {
+        this.errorCentros = e.message;
+      } finally {
+        this.loadingCentros = false;
+      }
+    },
+
+    async loadPareto() {
+      this.loadingPareto = true; this.errorPareto = null;
+      try {
+        this.paretoData = await apiFetch('/api/descriptivo/pareto');
+        this.$nextTick(() => this.initParetoChart());
+      } catch (e) {
+        this.errorPareto = e.message;
+      } finally {
+        this.loadingPareto = false;
+      }
+    },
+
+    async loadDiamantes() {
+      this.loadingDiamantes = true; this.errorDiamantes = null;
+      try {
+        this.diamantesData = await apiFetch('/api/descriptivo/diamantes');
+      } catch (e) {
+        this.errorDiamantes = e.message;
+      } finally {
+        this.loadingDiamantes = false;
+      }
+    },
+
+    initParetoChart() {
+      const canvas = document.getElementById('paretoChart');
+      if (!canvas || !this.paretoData) return;
+      destroyChart(this._paretoChart);
+      const puntos = this.paretoData.puntos;
+      this._paretoChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: puntos.map(p => p.pct_skus.toFixed(0) + '%'),
+          datasets: [
+            {
+              label: 'Valor acumulado',
+              data: puntos.map(p => p.pct_valor_acum),
+              borderColor: COLORES.primario,
+              backgroundColor: 'rgba(31,78,120,0.15)',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.35,
+              fill: true,
+            },
+            {
+              label: 'Referencia 80%',
+              data: puntos.map(() => 80),
+              borderColor: COLORES.baseline,
+              borderWidth: 1.5,
+              borderDash: [5, 4],
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: COLORES.slate400, boxWidth: 14, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                title: items => items[0].label + ' de SKUs',
+                label: item => item.dataset.label + ': ' + item.parsed.y.toFixed(1) + '%',
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { color: COLORES.slate800 },
+              ticks: { color: COLORES.slate400, maxTicksLimit: 10 },
+              title: { display: true, text: '% SKUs (mayor → menor valor)', color: COLORES.slate400, font: { size: 10 } },
+            },
+            y: {
+              min: 0, max: 100,
+              grid: { color: COLORES.slate800 },
+              ticks: { color: COLORES.slate400, callback: v => v + '%' },
+              title: { display: true, text: '% valor acumulado', color: COLORES.slate400, font: { size: 10 } },
+            },
+          },
+        },
+      });
+    },
+
+    barrasLineas() {
+      if (!this.lineasData?.items?.length) return [];
+      const maxVal = Math.max(...this.lineasData.items.map(l => l.valor_total));
+      return this.lineasData.items.map((l, idx) => ({
+        linea: l.linea.length > 28 ? l.linea.slice(0, 28) + '…' : l.linea,
+        valor_total: l.valor_total,
+        num_skus: l.num_skus,
+        pct: maxVal > 0 ? Math.round((l.valor_total / maxVal) * 100) : 0,
+        pct_valor: l.pct_valor,
+        opacity: (1 - (idx / this.lineasData.items.length) * 0.5).toFixed(2),
+      }));
+    },
+
+    estacBars() {
+      if (!this.estacData?.items?.length) return [];
+      const vals = this.estacData.items.map(p => p.cantidad_total_mes);
+      const maxVal = Math.max(...vals);
+      const minVal = Math.min(...vals);
+      return this.estacData.items.map(p => ({
+        ...p,
+        pct: maxVal > 0 ? Math.round((p.cantidad_total_mes / maxVal) * 100) : 0,
+        isPico: p.cantidad_total_mes === maxVal,
+        isBajo: p.cantidad_total_mes === minVal,
+      }));
+    },
+
+    centrosBars() {
+      if (!this.centrosData?.items?.length) return [];
+      const maxVal = Math.max(...this.centrosData.items.map(c => c.cantidad_total));
+      const colors = ['#1F4E78', '#16A085', '#6366F1'];
+      return this.centrosData.items.map((c, idx) => ({
+        ...c,
+        pct: maxVal > 0 ? Math.round((c.cantidad_total / maxVal) * 100) : 0,
+        color: colors[idx % colors.length],
+      }));
+    },
+
+    diamantesBars() {
+      if (!this.diamantesData?.items?.length) return [];
+      const maxVal = Math.max(...this.diamantesData.items.map(d => d.valor_total));
+      return this.diamantesData.items.map(d => ({
+        ...d,
+        pct: maxVal > 0 ? Math.round((d.valor_total / maxVal) * 100) : 0,
+        color: (typeof COLORS_SEGMENTO !== 'undefined' && COLORS_SEGMENTO[d.segmento]) || '#64748B',
+      }));
     },
 
     switchInsightsTab(t) {

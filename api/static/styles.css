@@ -20,17 +20,12 @@
 
 canvas { display: block; }
 
-.heat-xs  { background: #1e293b; }
-.heat-sm  { background: #1a4731; }
-.heat-md  { background: #166534; }
-.heat-lg  { background: #ca8a04; }
-.heat-xl  { background: #c0392b; }
-
 .tr-hover:hover { background: rgba(30,41,59,0.6); cursor: pointer; }
 
-.badge-a { background:#27AE60;color:#fff; }
-.badge-b { background:#F39C12;color:#fff; }
-.badge-c { background:#475569;color:#cbd5e1; }
+/* ABC badges — semantic colors (A=high value, B=medium, C=neutral long tail) */
+.badge-a { background:#10B981;color:#fff; }
+.badge-b { background:#6366F1;color:#fff; }
+.badge-c { background:#64748B;color:#e2e8f0; }
 
 .badge-alta   { background:#7f1d1d; color:#fca5a5; border:1px solid #991b1b; }
 .badge-media  { background:#78350f; color:#fcd34d; border:1px solid #92400e; }
