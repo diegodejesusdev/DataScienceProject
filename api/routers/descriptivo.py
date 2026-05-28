@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException
+
+from api.config import CENTROS_VALIDOS
 
 from api.database import query
 from api.schemas import (
@@ -154,9 +158,34 @@ def get_diamantes() -> DiamantesResponse:
     response_model=EstacionalidadResponse,
     summary="Demanda mensual agregada — periodo 2024-2025",
 )
-def get_estacionalidad() -> EstacionalidadResponse:
+def get_estacionalidad(
+    centro: Optional[str] = None,
+) -> EstacionalidadResponse:
+    """Demanda mensual del periodo 2024-2025.
+
+    Parámetros
+    ----------
+    centro : str, opcional
+        Filtra por centro de operación (001, 002, 003). Si se omite, agrega
+        todos los centros.
+    """
+    if centro is not None and centro not in CENTROS_VALIDOS:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "CENTRO_INVALIDO",
+                "message": f"Centro '{centro}' no válido. Opciones: {sorted(CENTROS_VALIDOS)}.",
+            },
+        )
+
+    where_centro = ""
+    params: dict = {}
+    if centro:
+        where_centro = "AND centro_operacion = :centro"
+        params["centro"] = centro
+
     df = query(
-        """
+        f"""
         SELECT YEAR(fecha_inicio_semana)      AS anio,
                MONTH(fecha_inicio_semana)     AS mes,
                MONTHNAME(fecha_inicio_semana) AS nombre_mes,
@@ -164,11 +193,15 @@ def get_estacionalidad() -> EstacionalidadResponse:
                AVG(cantidad_total)            AS cantidad_promedio_sku_semana
         FROM ventas_semanales
         WHERE fecha_inicio_semana BETWEEN '2024-01-01' AND '2025-12-31'
-        GROUP BY YEAR(fecha_inicio_semana), MONTH(fecha_inicio_semana),
+          {where_centro}
+        GROUP BY YEAR(fecha_inicio_semana),
+                 MONTH(fecha_inicio_semana),
                  MONTHNAME(fecha_inicio_semana)
         ORDER BY anio, mes
-        """
+        """,
+        params,
     )
+
     if df.empty:
         return EstacionalidadResponse(items=[])
 

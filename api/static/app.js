@@ -29,6 +29,25 @@ const COLOR_MODELO = {
   prophet:      COLORES.prophet,
 };
 
+const NOMBRES_CENTRO = {
+  '001': 'Ciudad Jardín',
+  '002': 'Bello Horizonte Ppal',
+  '003': 'Bello Horizonte Cerámicas',
+};
+
+const NOMBRES_CENTRO_CORTO = {
+  '001': 'Ciudad Jardín',
+  '002': 'B.H. Principal',
+  '003': 'B.H. Cerámicas',
+};
+
+/** Devuelve el nombre legible de un centro, con fallback al código. */
+function nombreCentro(codigo, corto = false) {
+  if (!codigo) return '—';
+  const mapa = corto ? NOMBRES_CENTRO_CORTO : NOMBRES_CENTRO;
+  return mapa[codigo] || codigo;
+}
+
 const SEMANAS = [
   '2025-10-06','2025-10-13','2025-10-20','2025-10-27',
   '2025-11-03','2025-11-10','2025-11-17','2025-11-24',
@@ -100,6 +119,9 @@ function app() {
     metricasGlobal: null,
     loadingRes:     false,
     errorRes:       null,
+    // Filtro interactivo por centro (solo afecta gráfica de estacionalidad)
+    resCentro:      '',
+    reloadingEstac: false,
 
     // ── pronósticos/top ──
     topData:        null,
@@ -186,16 +208,36 @@ function app() {
     async loadResumen() {
       this.loadingRes = true; this.errorRes = null;
       try {
+        const estacUrl = this.resCentro
+          ? `/api/descriptivo/estacionalidad?centro=${this.resCentro}`
+          : '/api/descriptivo/estacionalidad';
         [this.resumen, this.metricasGlobal, this.lineasData, this.estacData] = await Promise.all([
           apiFetch('/api/clasificacion/resumen'),
           apiFetch('/api/metricas/comparacion?split=test_2026&segmento=global'),
           apiFetch('/api/descriptivo/lineas-top'),
-          apiFetch('/api/descriptivo/estacionalidad'),
+          apiFetch(estacUrl),
         ]);
       } catch (e) {
         this.errorRes = e.message;
       } finally {
         this.loadingRes = false;
+      }
+    },
+
+    /** Recarga selectivamente solo el gráfico de estacionalidad al cambiar el filtro.
+     *  No recarga el resto del Resumen para evitar parpadeo innecesario. */
+    async reloadEstacionalidad() {
+      this.reloadingEstac = true;
+      this.errorRes = null;
+      try {
+        const url = this.resCentro
+          ? `/api/descriptivo/estacionalidad?centro=${this.resCentro}`
+          : '/api/descriptivo/estacionalidad';
+        this.estacData = await apiFetch(url);
+      } catch (e) {
+        this.errorRes = e.message;
+      } finally {
+        setTimeout(() => { this.reloadingEstac = false; }, 200);
       }
     },
 
@@ -215,6 +257,7 @@ function app() {
         .sort((a, b) => b.mae - a.mae);
       const maxMae = Math.max(...modelos.map(m => m.mae));
       return modelos.map(m => ({
+        modeloKey: m.modelo,
         nombre: NOMBRES_MODELO[m.modelo] || m.nombre_amigable,
         mae:    m.mae,
         pct:    Math.round((m.mae / maxMae) * 100),
@@ -576,6 +619,67 @@ function app() {
     },
     colorCambio(pct) {
       return pct > 10 ? 'text-emerald-400' : pct < -10 ? 'text-red-400' : 'text-slate-400';
+    },
+
+    // ── Tooltips enriquecidos para barras CSS del Resumen ────────────────────
+
+    tooltipLinea(item) {
+      return [
+        `Línea: ${item.linea}`,
+        `Valor total: ${fmtCOP(item.valor_total)}`,
+        `Participación: ${item.pct_valor.toFixed(1)}%`,
+        `SKUs en la línea: ${fmt(item.num_skus)}`,
+      ].join('\n');
+    },
+
+    tooltipModelo(modeloKey) {
+      if (!this.metricasGlobal) return '';
+      const m = this.metricasGlobal.modelos.find(x => x.modelo === modeloKey);
+      if (!m) return '';
+      const lines = [
+        `Modelo: ${NOMBRES_MODELO[m.modelo] || m.nombre_amigable}`,
+        `MAE: ${m.mae.toFixed(2)} uds`,
+        `RMSE: ${m.rmse.toFixed(2)}`,
+        `MAPE: ${m.mape.toFixed(1)}%`,
+      ];
+      if (m.mejora_vs_baseline_pct != null) {
+        lines.push(`Mejora vs Baseline: +${m.mejora_vs_baseline_pct.toFixed(2)}%`);
+      }
+      lines.push(`Predicciones evaluadas: ${fmt(m.n_obs)}`);
+      return lines.join('\n');
+    },
+
+    tooltipABC(clase) {
+      if (!this.resumen?.distribucion_abc) return '';
+      const d = this.resumen.distribucion_abc[clase];
+      if (!d) return '';
+      return [
+        `Clase ${clase}`,
+        `SKUs: ${fmt(d.num_skus)} (${d.porcentaje_skus.toFixed(1)}%)`,
+        `Valor total: ${fmtCOP(d.valor_total)}`,
+        `Participación del valor: ${d.porcentaje_valor.toFixed(1)}%`,
+      ].join('\n');
+    },
+
+    tooltipSKU(sku) {
+      return [
+        `Código: ${sku.item}`,
+        `Producto: ${sku.nombre}`,
+        `Valor histórico: ${fmtCOP(sku.valor_total)}`,
+        `Clase: A · Segmento estrella (AX/AY)`,
+      ].join('\n');
+    },
+
+    // ── Helpers de presentación de centros ──────────────────────────────────
+
+    /** Nombre legible de un centro (e.g. '002' → 'Bello Horizonte Ppal'). */
+    nombreCentro(codigo) {
+      return nombreCentro(codigo, false);
+    },
+
+    /** Nombre corto de un centro (para espacios reducidos). */
+    nombreCentroCorto(codigo) {
+      return nombreCentro(codigo, true);
     },
   };
 }
