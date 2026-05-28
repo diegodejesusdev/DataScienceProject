@@ -258,3 +258,39 @@ class VentasPorCentroResponse(BaseModel):
     items: list[VentasCentro]
     total_cantidad: float
     total_valor: float
+
+
+# ─── Top SKUs por centro ──────────────────────────────────────────────────────
+
+class TopSKUPorCentroItem(BaseModel):
+    item: str
+    nombre: str
+    linea: Optional[str] = None
+    clase_abc: Optional[str] = None
+    segmento_abc_xyz: Optional[str] = None
+    cantidad_total: float
+    valor_total: float
+    num_transacciones: int
+
+
+class TopSKUsPorCentroResponse(BaseModel):
+    centro_operacion: Optional[str] = None
+    linea_filtro: Optional[str] = None
+    total_resultados: int
+    items: list[TopSKUPorCentroItem]
+
+
+# ─── Líneas por centro ────────────────────────────────────────────────────────
+
+class LineaPorCentroItem(BaseModel):
+    linea: str
+    cantidad_total: float
+    valor_total: float
+    num_skus_activos: int
+    pct_valor: float
+
+
+class LineasPorCentroResponse(BaseModel):
+    centro_operacion: Optional[str] = None
+    total_valor: float
+    items: list[LineaPorCentroItem]

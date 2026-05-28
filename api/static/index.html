@@ -59,34 +59,78 @@
     </div>
 
     <!-- Filtros interactivos del Resumen -->
-    <div class="bg-slate-800/30 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center gap-3">
-      <span class="text-xs text-slate-400 uppercase tracking-wide">Filtros</span>
+    <div class="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Filtros</span>
 
-      <!-- Selector de centro -->
-      <div class="flex items-center gap-2">
-        <label for="resCentroFiltro" class="text-xs text-slate-300">Centro:</label>
-        <select
-          id="resCentroFiltro"
-          x-model="resCentro"
-          @change="reloadEstacionalidad()"
-          class="bg-slate-700/60 border border-slate-600 rounded-md text-sm text-slate-200 px-3 py-1.5 focus:outline-none focus:border-purple-500 transition-colors">
-          <option value="">Todos los centros</option>
-          <option value="001">Ciudad Jardín</option>
-          <option value="002">Bello Horizonte Ppal</option>
-          <option value="003">Bello Horizonte Cerámicas</option>
-        </select>
+        <!-- Selector de centro -->
+        <div class="flex items-center gap-2">
+          <label for="resCentroFiltro" class="text-xs text-slate-300">Centro:</label>
+          <select
+            id="resCentroFiltro"
+            x-model="resCentro"
+            @change="onCentroChange()"
+            class="bg-slate-700/60 border border-slate-600 rounded-md text-sm text-slate-200 px-3 py-1.5 focus:outline-none focus:border-purple-500 transition-colors">
+            <option value="">Todos los centros</option>
+            <option value="001">Ciudad Jardín</option>
+            <option value="002">Bello Horizonte Ppal</option>
+            <option value="003">Bello Horizonte Cerámicas</option>
+          </select>
+        </div>
+
+        <!-- Selector de línea -->
+        <div class="flex items-center gap-2">
+          <label for="resLineaFiltro" class="text-xs text-slate-300">Línea:</label>
+          <select
+            id="resLineaFiltro"
+            x-model="resLinea"
+            @change="onLineaOTopChange()"
+            class="bg-slate-700/60 border border-slate-600 rounded-md text-sm text-slate-200 px-3 py-1.5 focus:outline-none focus:border-purple-500 transition-colors">
+            <option value="">Todas las líneas</option>
+            <template x-for="l in lineasDisponibles" :key="l">
+              <option :value="l" x-text="l"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Selector de Top N -->
+        <div class="flex items-center gap-2">
+          <label for="resTopNFiltro" class="text-xs text-slate-300">Top:</label>
+          <select
+            id="resTopNFiltro"
+            x-model.number="resTopN"
+            @change="onLineaOTopChange()"
+            class="bg-slate-700/60 border border-slate-600 rounded-md text-sm text-slate-200 px-3 py-1.5 focus:outline-none focus:border-purple-500 transition-colors">
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+          </select>
+        </div>
+
+        <!-- Botón reset (solo si hay filtros activos) -->
+        <template x-if="resCentro || resLinea || resTopN !== 10">
+          <button
+            @click="resetFiltros()"
+            class="text-xs text-slate-400 hover:text-purple-400 underline transition-colors ml-1">
+            Restablecer
+          </button>
+        </template>
+
+        <!-- Indicador de filtro activo -->
+        <template x-if="resCentro || resLinea">
+          <span class="ml-auto text-xs text-purple-400 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+            <span x-text="resCentro ? nombreCentro(resCentro) : 'Todos los centros'"></span>
+            <template x-if="resLinea">
+              <span class="text-slate-400">·</span>
+            </template>
+            <span x-show="resLinea" x-text="resLinea"></span>
+          </span>
+        </template>
+        <template x-if="!resCentro && !resLinea">
+          <span class="ml-auto text-xs text-slate-500">Vista global · sin filtros activos</span>
+        </template>
       </div>
-
-      <!-- Indicador de filtro activo -->
-      <template x-if="resCentro">
-        <span class="ml-auto text-xs text-purple-400 flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-          Filtrado: <span x-text="nombreCentro(resCentro)"></span>
-        </span>
-      </template>
-      <template x-if="!resCentro">
-        <span class="ml-auto text-xs text-slate-500">Vista global · todos los centros</span>
-      </template>
     </div>
 
     <!-- KPIs -->
@@ -124,26 +168,46 @@
       </template>
     </div>
 
-    <!-- Top líneas de producto -->
+    <!-- Top 10 líneas (dinámico por centro) -->
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-      <h2 class="text-sm font-semibold text-slate-300 mb-4">Top 10 líneas de producto por valor comercial</h2>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-slate-300">
+          Top 10 líneas de producto
+          <template x-if="resCentro">
+            <span class="text-xs text-purple-400 ml-1">· <span x-text="nombreCentro(resCentro)"></span></span>
+          </template>
+          <template x-if="!resCentro">
+            <span class="text-xs text-slate-500 ml-1">· Todos los centros</span>
+          </template>
+        </h2>
+        <div x-show="reloadingFiltros" class="text-xs text-slate-400 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+          Recargando…
+        </div>
+      </div>
       <div x-show="loadingRes" class="h-40 skeleton"></div>
-      <div x-show="!loadingRes && lineasData" class="space-y-2">
-        <template x-for="item in barrasLineas()" :key="item.linea">
+      <div
+        x-show="!loadingRes && lineasPorCentro"
+        :class="reloadingFiltros ? 'opacity-30' : 'opacity-100'"
+        class="transition-opacity duration-300 space-y-2">
+        <template x-for="item in barrasLineasPorCentro()" :key="item.lineaFull">
           <div
             class="flex items-center gap-3 cursor-help hover:bg-slate-700/20 -mx-2 px-2 py-0.5 rounded transition-colors"
-            :title="tooltipLinea(item)">
+            :title="tooltipLineaCentro(item)">
             <span class="text-xs text-slate-400 w-40 text-right shrink-0 leading-tight truncate"
                   x-text="item.linea"></span>
             <div class="flex-1 bg-slate-700/40 rounded-full h-5 overflow-hidden">
               <div class="h-full rounded-full transition-all duration-700"
-                   :style="`width:${item.pct}%; background: rgba(31,78,120,${item.opacity})`"></div>
+                   :style="`width:${item.pct}%; background: rgba(155,89,182,${item.opacity})`"></div>
             </div>
             <span class="text-xs text-slate-400 tabular-nums w-14 shrink-0 text-right"
                   x-text="item.pct_valor.toFixed(1) + '%'"></span>
             <span class="text-xs text-slate-500 tabular-nums w-14 shrink-0 text-right"
                   x-text="item.num_skus + ' SKUs'"></span>
           </div>
+        </template>
+        <template x-if="!barrasLineasPorCentro().length">
+          <p class="text-xs text-slate-500 italic py-4">No hay datos para los filtros seleccionados.</p>
         </template>
       </div>
     </div>
@@ -170,27 +234,50 @@
       </div>
     </div>
 
-    <!-- Top SKUs estrella + Donut ABC -->
+    <!-- Top SKUs + Distribución ABC -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-      <!-- Top SKUs estrella -->
+      <!-- Top SKUs por centro (dinámico) -->
       <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-        <h2 class="text-sm font-semibold text-slate-300 mb-4">Top SKUs estrella (clase A, segmento AX/AY)</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-slate-300">
+            Top <span x-text="resTopN"></span> SKUs vendidos
+            <template x-if="resCentro">
+              <span class="text-xs text-purple-400 ml-1">· <span x-text="nombreCentro(resCentro)"></span></span>
+            </template>
+            <template x-if="resLinea">
+              <span class="text-xs text-purple-400 ml-1">· <span x-text="resLinea"></span></span>
+            </template>
+          </h2>
+          <div x-show="reloadingFiltros" class="text-xs text-slate-400 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+            Recargando…
+          </div>
+        </div>
         <div x-show="loadingRes" class="space-y-2">
           <template x-for="i in 5" :key="i"><div class="h-9 skeleton"></div></template>
         </div>
-        <div x-show="!loadingRes && resumen" class="space-y-2">
-          <template x-for="sku in resumen?.skus_estrella?.items" :key="sku.item">
+        <div
+          x-show="!loadingRes && topSkusCentro"
+          :class="reloadingFiltros ? 'opacity-30' : 'opacity-100'"
+          class="transition-opacity duration-300 space-y-1.5">
+          <template x-for="sku in filasTopSkusCentro()" :key="sku.item">
             <div
-              class="flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0 cursor-help hover:bg-slate-700/20 -mx-2 px-2 rounded transition-colors"
-              :title="tooltipSKU(sku)">
-              <div>
-                <span class="text-xs font-mono text-slate-400 mr-2" x-text="sku.item"></span>
-                <span class="text-sm text-slate-200" x-text="sku.nombre.slice(0,38)"></span>
-              </div>
-              <span class="text-sm font-medium text-slate-300 tabular-nums shrink-0 ml-2"
+              class="flex items-center gap-2 py-1.5 border-b border-slate-700/30 last:border-0 cursor-help hover:bg-slate-700/20 -mx-2 px-2 rounded transition-colors"
+              :title="tooltipSKUCentro(sku)">
+              <span class="text-xs font-mono text-slate-500 shrink-0 w-12" x-text="sku.item"></span>
+              <span class="text-xs text-slate-200 flex-1 truncate" x-text="sku.nombre"></span>
+              <template x-if="sku.clase_abc">
+                <span class="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                      :class="badgeABC(sku.clase_abc)"
+                      x-text="sku.clase_abc"></span>
+              </template>
+              <span class="text-xs font-medium text-slate-300 tabular-nums shrink-0 w-20 text-right"
                     x-text="fmtCOP(sku.valor_total)"></span>
             </div>
+          </template>
+          <template x-if="!filasTopSkusCentro().length">
+            <p class="text-xs text-slate-500 italic py-4">No hay datos para los filtros seleccionados.</p>
           </template>
         </div>
       </div>
@@ -239,7 +326,7 @@
             <span class="text-xs text-purple-400 ml-2">· <span x-text="nombreCentro(resCentro)"></span></span>
           </template>
         </h2>
-        <div x-show="reloadingEstac" class="text-xs text-slate-400 flex items-center gap-1.5">
+        <div x-show="reloadingFiltros" class="text-xs text-slate-400 flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
           Recargando…
         </div>
@@ -247,7 +334,7 @@
       <div x-show="loadingRes" class="h-36 skeleton"></div>
       <div
         x-show="!loadingRes && estacData"
-        :class="reloadingEstac ? 'opacity-30' : 'opacity-100'"
+        :class="reloadingFiltros ? 'opacity-30' : 'opacity-100'"
         class="transition-opacity duration-300">
         <div class="flex items-end gap-0.5 h-28 pb-1">
           <template x-for="p in estacBars()" :key="p.mes_label">
@@ -276,6 +363,37 @@
         </div>
       </div>
     </div>
+
+    <!-- Comparativa entre centros (solo visible sin filtro de centro) -->
+    <template x-if="!resCentro && centrosCompara?.items?.length">
+      <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">
+          Comparativa de ventas entre centros
+          <span class="text-xs text-slate-500 ml-1">· período 2024-2025</span>
+        </h2>
+        <div class="space-y-3">
+          <template x-for="c in barrasComparaCentros()" :key="c.codigo">
+            <div
+              class="flex items-center gap-3 cursor-help hover:bg-slate-700/20 -mx-2 px-2 py-1 rounded transition-colors"
+              :title="tooltipCentroCompara(c)">
+              <span class="text-xs text-slate-300 w-44 text-right shrink-0 leading-tight"
+                    x-text="c.nombre"></span>
+              <div class="flex-1 bg-slate-700/40 rounded-full h-6 overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-700 bg-purple-500/80"
+                     :style="`width:${c.pct}%`"></div>
+              </div>
+              <span class="text-xs font-medium text-slate-300 tabular-nums w-24 shrink-0 text-right"
+                    x-text="fmt(c.cantidad) + ' uds'"></span>
+              <span class="text-xs text-slate-500 tabular-nums w-16 shrink-0 text-right"
+                    x-text="c.pct_cantidad.toFixed(1) + '%'"></span>
+            </div>
+          </template>
+        </div>
+        <p class="text-xs text-slate-500 mt-3 italic">
+          Filtra por un centro específico arriba para ver sus líneas y SKUs más vendidos.
+        </p>
+      </div>
+    </template>
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════════════

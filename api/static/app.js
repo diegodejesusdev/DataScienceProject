@@ -115,13 +115,27 @@ function app() {
     ],
 
     // ── resumen ──
-    resumen:        null,
-    metricasGlobal: null,
+    resumen:        null,             // /api/clasificacion/resumen (KPIs, ABC, etc.)
+    metricasGlobal: null,             // /api/metricas/comparacion (MAE modelos)
     loadingRes:     false,
     errorRes:       null,
-    // Filtro interactivo por centro (solo afecta gráfica de estacionalidad)
-    resCentro:      '',
-    reloadingEstac: false,
+
+    // Filtros interactivos del Resumen
+    resCentro:      '',               // '' = todos los centros
+    resLinea:       '',               // '' = todas las líneas
+    resTopN:        10,               // 5, 10, 20
+
+    // Datos filtrables
+    estacData:        null,           // /api/descriptivo/estacionalidad (filtrable centro)
+    lineasPorCentro:  null,           // /api/descriptivo/lineas-por-centro (filtrable centro)
+    topSkusCentro:    null,           // /api/descriptivo/top-skus-por-centro (centro+linea+limit)
+    centrosCompara:   null,           // /api/descriptivo/ventas-por-centro (comparativa global)
+
+    // Estado de recarga (para animaciones fade)
+    reloadingFiltros: false,
+
+    // Listado de líneas únicas para el selector
+    lineasDisponibles: [],
 
     // ── pronósticos/top ──
     topData:        null,
@@ -160,13 +174,7 @@ function app() {
     alertasSoloAB:  true,
 
     // ── descriptivo ──
-    lineasData:       null,
-    loadingLineas:    false,
-    errorLineas:      null,
-    estacData:        null,
-    loadingEstac:     false,
-    errorEstac:       null,
-    centrosData:      null,
+    centrosData:      null,           // volumen por centro para tab Pronósticos
     loadingCentros:   false,
     errorCentros:     null,
     paretoData:       null,
@@ -205,18 +213,29 @@ function app() {
 
     // ── Resumen ───────────────────────────────────────────────────────────────
 
+    /** Carga inicial completa del Resumen. */
     async loadResumen() {
       this.loadingRes = true; this.errorRes = null;
       try {
-        const estacUrl = this.resCentro
-          ? `/api/descriptivo/estacionalidad?centro=${this.resCentro}`
-          : '/api/descriptivo/estacionalidad';
-        [this.resumen, this.metricasGlobal, this.lineasData, this.estacData] = await Promise.all([
+        const [resumen, metricasGlobal, estacData, lineasPorCentro, topSkusCentro, centrosCompara] = await Promise.all([
           apiFetch('/api/clasificacion/resumen'),
           apiFetch('/api/metricas/comparacion?split=test_2026&segmento=global'),
-          apiFetch('/api/descriptivo/lineas-top'),
-          apiFetch(estacUrl),
+          apiFetch(this._urlEstacionalidad()),
+          apiFetch(this._urlLineasPorCentro()),
+          apiFetch(this._urlTopSkusCentro()),
+          apiFetch('/api/descriptivo/ventas-por-centro'),
         ]);
+        this.resumen          = resumen;
+        this.metricasGlobal   = metricasGlobal;
+        this.estacData        = estacData;
+        this.lineasPorCentro  = lineasPorCentro;
+        this.topSkusCentro    = topSkusCentro;
+        this.centrosCompara   = centrosCompara;
+
+        // Extrae las líneas disponibles del primer load (vista global)
+        if (lineasPorCentro?.items) {
+          this.lineasDisponibles = lineasPorCentro.items.map(l => l.linea);
+        }
       } catch (e) {
         this.errorRes = e.message;
       } finally {
@@ -224,21 +243,65 @@ function app() {
       }
     },
 
-    /** Recarga selectivamente solo el gráfico de estacionalidad al cambiar el filtro.
-     *  No recarga el resto del Resumen para evitar parpadeo innecesario. */
-    async reloadEstacionalidad() {
-      this.reloadingEstac = true;
+    /** Construye URLs de los endpoints filtrables con el estado actual. */
+    _urlEstacionalidad() {
+      return this.resCentro
+        ? `/api/descriptivo/estacionalidad?centro=${this.resCentro}`
+        : '/api/descriptivo/estacionalidad';
+    },
+    _urlLineasPorCentro() {
+      return this.resCentro
+        ? `/api/descriptivo/lineas-por-centro?centro=${this.resCentro}`
+        : '/api/descriptivo/lineas-por-centro';
+    },
+    _urlTopSkusCentro() {
+      const params = new URLSearchParams({ limit: this.resTopN });
+      if (this.resCentro) params.set('centro', this.resCentro);
+      if (this.resLinea)  params.set('linea',  this.resLinea);
+      return `/api/descriptivo/top-skus-por-centro?${params}`;
+    },
+
+    /** Recarga selectiva al cambiar el filtro de CENTRO.
+     *  Afecta: estacionalidad, líneas por centro, top SKUs por centro. */
+    async onCentroChange() {
+      this.reloadingFiltros = true;
       this.errorRes = null;
       try {
-        const url = this.resCentro
-          ? `/api/descriptivo/estacionalidad?centro=${this.resCentro}`
-          : '/api/descriptivo/estacionalidad';
-        this.estacData = await apiFetch(url);
+        const [estac, lineas, topSkus] = await Promise.all([
+          apiFetch(this._urlEstacionalidad()),
+          apiFetch(this._urlLineasPorCentro()),
+          apiFetch(this._urlTopSkusCentro()),
+        ]);
+        this.estacData       = estac;
+        this.lineasPorCentro = lineas;
+        this.topSkusCentro   = topSkus;
       } catch (e) {
         this.errorRes = e.message;
       } finally {
-        setTimeout(() => { this.reloadingEstac = false; }, 200);
+        setTimeout(() => { this.reloadingFiltros = false; }, 250);
       }
+    },
+
+    /** Recarga selectiva al cambiar el filtro de LÍNEA o de TOP N.
+     *  Afecta solo: top SKUs por centro. */
+    async onLineaOTopChange() {
+      this.reloadingFiltros = true;
+      this.errorRes = null;
+      try {
+        this.topSkusCentro = await apiFetch(this._urlTopSkusCentro());
+      } catch (e) {
+        this.errorRes = e.message;
+      } finally {
+        setTimeout(() => { this.reloadingFiltros = false; }, 200);
+      }
+    },
+
+    /** Resetea todos los filtros del Resumen a sus valores por defecto. */
+    async resetFiltros() {
+      this.resCentro = '';
+      this.resLinea  = '';
+      this.resTopN   = 10;
+      await this.onCentroChange();
     },
 
     get kpiMaeLightgbm() {
@@ -550,17 +613,81 @@ function app() {
       });
     },
 
-    barrasLineas() {
-      if (!this.lineasData?.items?.length) return [];
-      const maxVal = Math.max(...this.lineasData.items.map(l => l.valor_total));
-      return this.lineasData.items.map((l, idx) => ({
-        linea: l.linea.length > 28 ? l.linea.slice(0, 28) + '…' : l.linea,
-        valor_total: l.valor_total,
-        num_skus: l.num_skus,
-        pct: maxVal > 0 ? Math.round((l.valor_total / maxVal) * 100) : 0,
-        pct_valor: l.pct_valor,
-        opacity: (1 - (idx / this.lineasData.items.length) * 0.5).toFixed(2),
+    // ── Transformadores para gráficas dinámicas del Resumen ─────────────────
+
+    /** Barras de Top líneas por centro (ya filtradas en el backend). */
+    barrasLineasPorCentro() {
+      const data = this.lineasPorCentro?.items;
+      if (!data?.length) return [];
+      const maxVal = Math.max(...data.map(l => l.valor_total));
+      return data.map((l, idx) => ({
+        linea:        l.linea.length > 28 ? l.linea.slice(0, 28) + '…' : l.linea,
+        lineaFull:    l.linea,
+        valor_total:  l.valor_total,
+        cantidad:     l.cantidad_total,
+        num_skus:     l.num_skus_activos,
+        pct_valor:    l.pct_valor,
+        pct:          maxVal > 0 ? Math.round((l.valor_total / maxVal) * 100) : 0,
+        opacity:      (1 - (idx / data.length) * 0.5).toFixed(2),
       }));
+    },
+
+    /** Filas de Top SKUs por centro. */
+    filasTopSkusCentro() {
+      const data = this.topSkusCentro?.items;
+      if (!data?.length) return [];
+      const maxVal = Math.max(...data.map(s => s.valor_total));
+      return data.map(s => ({
+        ...s,
+        pct: maxVal > 0 ? Math.round((s.valor_total / maxVal) * 100) : 0,
+      }));
+    },
+
+    /** Barras de comparativa entre centros (solo cuando filtro = "todos"). */
+    barrasComparaCentros() {
+      const data = this.centrosCompara?.items;
+      if (!data?.length) return [];
+      const maxVal = Math.max(...data.map(c => c.cantidad_total));
+      return data.map(c => ({
+        codigo:        c.centro_operacion,
+        nombre:        this.nombreCentro(c.centro_operacion),
+        cantidad:      c.cantidad_total,
+        valor_total:   c.valor_total,
+        pct_cantidad:  c.pct_cantidad,
+        pct:           maxVal > 0 ? Math.round((c.cantidad_total / maxVal) * 100) : 0,
+      }));
+    },
+
+    tooltipLineaCentro(item) {
+      return [
+        `Línea: ${item.lineaFull}`,
+        `Valor total: ${fmtCOP(item.valor_total)}`,
+        `Cantidad: ${fmt(item.cantidad)} uds`,
+        `Participación: ${item.pct_valor.toFixed(1)}%`,
+        `SKUs activos: ${fmt(item.num_skus)}`,
+      ].join('\n');
+    },
+
+    tooltipSKUCentro(sku) {
+      const lines = [
+        `Código: ${sku.item}`,
+        `Producto: ${sku.nombre}`,
+      ];
+      if (sku.linea)            lines.push(`Línea: ${sku.linea}`);
+      if (sku.clase_abc)        lines.push(`Clase ABC: ${sku.clase_abc}`);
+      if (sku.segmento_abc_xyz) lines.push(`Segmento: ${sku.segmento_abc_xyz}`);
+      lines.push(`Cantidad: ${fmt(sku.cantidad_total)} uds`);
+      lines.push(`Valor: ${fmtCOP(sku.valor_total)}`);
+      return lines.join('\n');
+    },
+
+    tooltipCentroCompara(c) {
+      return [
+        `Centro: ${c.nombre}`,
+        `Cantidad total: ${fmt(c.cantidad)} uds`,
+        `Valor total: ${fmtCOP(c.valor_total)}`,
+        `Participación: ${c.pct_cantidad.toFixed(1)}%`,
+      ].join('\n');
     },
 
     estacBars() {
