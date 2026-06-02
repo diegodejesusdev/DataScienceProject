@@ -1,6 +1,8 @@
 # CLAUDE.md — Proyecto ConstruNorte
 
-Este archivo le dice a Claude Code todo lo que necesita saber para trabajar en este proyecto sin equivocarse. **Lee este archivo completo antes de hacer cualquier cambio.**
+Este archivo le dice a Claude Code todo lo que necesita saber para trabajar en este proyecto. **Lee este archivo completo antes de hacer cualquier cambio.**
+
+> **Estado:** Proyecto finalizado y entregado el 28 de mayo de 2026. Cualquier trabajo futuro es mantenimiento o consulta de referencia.
 
 ---
 
@@ -12,7 +14,7 @@ Este archivo le dice a Claude Code todo lo que necesita saber para trabajar en e
 **Institución:** Corporación Universitaria Comfacauca — Unicomfacauca.
 **Programa:** Diplomado en Ingeniería y Ciencia de Datos Aplicada.
 **Tutor:** Ing. Francisco Javier Obando.
-**Plazo:** 4 semanas (entrega 28 de mayo de 2026).
+**Entrega:** 28 de mayo de 2026 (completado).
 
 ### Pregunta de investigación
 
@@ -29,51 +31,42 @@ Desarrollar un modelo de machine learning para pronosticar la demanda futura por
 - **OE3.** Construir modelos de machine learning para pronosticar la demanda futura por producto, evaluando su desempeño mediante métricas de precisión que permitan seleccionar el modelo más adecuado para apoyar decisiones de aprovisionamiento.
 - **OE4.** Evaluar los resultados del pronóstico y los patrones de rotación de productos mediante indicadores, tablas y visualizaciones, con el fin de generar insumos analíticos que orienten la organización de bodega y la toma de decisiones logísticas.
 
-### Periodo de análisis (validado con auditoría del dataset)
-
-El dataset crudo abarca tres bloques de fechas:
+### Periodo de análisis
 
 | Bloque | Filas | Tratamiento |
 |---|---|---|
 | 2022 | 22.611 | Descartado (anterior a facturación electrónica, descontinuo) |
 | 2024–2025 | 543.808 | **Periodo principal de modelado** |
 | 2026-01 a 2026-03 | 75.213 | **Test extendido** ("futuro real", no visto en entrenamiento) |
-| 2026-04 (parcial) | 18.950 | Descartado (solo hasta el 24/04, mes incompleto) |
+| 2026-04 (parcial) | 18.950 | Descartado (mes incompleto) |
 
-**Partición temporal definitiva:**
+**Partición temporal:**
 
+```
 Train:        2024-01-01 → 2025-09-30   (21 meses)
-Validation:   2025-10-01 → 2025-12-31   ( 3 meses, ajuste de hiperparámetros)
-Test 2026:    2026-01-01 → 2026-03-31   ( 3 meses, generalización temporal)
+Validation:   2025-10-01 → 2025-12-31   ( 3 meses)
+Test 2026:    2026-01-01 → 2026-03-31   ( 3 meses, out-of-sample real)
+```
 
-El **periodo de modelado sigue siendo 2024-2025** conforme al anteproyecto. Los datos de Q1 2026 se usan **adicionalmente** como prueba "out of sample real" para demostrar que el modelo generaliza a datos no vistos. Esto fortalece la defensa metodológica del proyecto.
+### Estructura en dos temas
 
-### Estructura en dos temas (según guía metodológica del programa)
+| Tema | Enfoque | Entregable |
+|---|---|---|
+| **Tema 1** | Descriptivo | Clasificación ABC/XYZ + dashboard de rotación |
+| **Tema 2** | Predictivo | Modelos de forecasting + pronósticos semanales |
 
-El proyecto integra dos enfoques complementarios sobre el mismo dataset:
+**Enfoque principal: predictivo (Tema 2).** El descriptivo (Tema 1) es complementario.
 
-| Tema | Enfoque | Lo que produce | Sirve para apoyar... |
-|---|---|---|---|
-| **Tema 1** | Descriptivo | Clasificación ABC/XYZ + dashboard de rotación | Decisiones de organización de bodega |
-| **Tema 2** | Predictivo | Modelo de forecasting + pronósticos semanales | Decisiones de aprovisionamiento |
+### Alcance del equipo
 
-**El enfoque principal del proyecto es el predictivo (Tema 2).** El descriptivo (Tema 1) es complementario y se entrega como dashboard sencillo.
+Este equipo **entrega insumos analíticos** (predicciones, clasificaciones, métricas, visualizaciones). La organización ConstruNorte decide qué hacer con esa información.
 
-### Alcance del equipo (delimitación crítica)
-
-Este equipo **NO toma decisiones operativas ni de negocio**. El equipo **entrega insumos analíticos** (predicciones, clasificaciones, métricas, visualizaciones). La organización ConstruNorte es quien decide qué hacer con esa información.
-
-Reglas de redacción derivadas:
 - ✅ "para apoyar decisiones de aprovisionamiento" / "para orientar la organización de bodega"
-- ✅ "insumo analítico que oriente..."
-- ❌ NO escribir "para reorganizar la bodega" / "para hacer pedidos" / "para decidir compras"
-- ❌ NO redactar como si el equipo ejecutara acciones operativas
-
-Esta delimitación aplica a **todo** lo que se genere: informe, notebooks, dashboard, anexo de requerimientos.
+- ❌ NO "para reorganizar la bodega" / "para hacer pedidos" / "para decidir compras"
 
 ---
 
-## 2. Stack tecnológico (FIJO — no cambiar sin discutirlo)
+## 2. Stack tecnológico
 
 | Capa | Herramienta | Dónde corre |
 |---|---|---|
@@ -81,93 +74,98 @@ Esta delimitación aplica a **todo** lo que se genere: informe, notebooks, dashb
 | Base de datos | MySQL 8.0 | Contenedor `construnorte_mysql` |
 | Admin BD (GUI web) | Adminer | Contenedor `construnorte_adminer` |
 | Ambiente análisis | Jupyter Lab + Python 3.11 | Contenedor `construnorte_jupyter` |
-| Ingesta visual del CSV | Apache Hop (un solo flujo simple) | **Nativo en Mac** (la GUI no se contenedoriza) |
-| Limpieza, agregación, ETL principal | Python en el contenedor Jupyter | Hop solo hace la ingesta inicial; todo lo demás es Python |
-| Dashboard | Tableau Desktop (licencia académica) | **Nativo en Mac** |
+| Ingesta inicial del CSV | Apache Hop | Nativo en Mac |
+| ETL principal, modelado | Python (Jupyter) | Contenedor Jupyter |
+| API REST | FastAPI + Uvicorn | Nativo (`.venv`) |
+| Dashboard web | HTML + CSS + JS (servido por FastAPI) | Nativo (`.venv`) |
+| Dashboard analítico | Tableau Desktop | Nativo en Mac |
 | Control de versiones | Git + GitHub | Host |
 
-**Librerías Python clave:** pandas, numpy, sqlalchemy, pymysql, scikit-learn, lightgbm, xgboost, prophet, matplotlib, seaborn, plotly, holidays.
+**Librerías Python clave:** pandas, numpy, sqlalchemy, pymysql, scikit-learn, lightgbm, xgboost, prophet, matplotlib, seaborn, plotly, holidays, fastapi, uvicorn, pydantic.
 
-**Modelos ML que se entrenarán y compararán:**
-1. **Baseline simple** (media móvil 4 semanas) — siempre primero, sirve de piso.
-2. **LightGBM Regressor** — modelo principal global con SKU como feature categórica.
-3. **XGBoost Regressor** — modelo de comparación con misma estrategia que LightGBM.
-4. **Prophet** — modelo de comparación para SKUs individuales del top.
+**Modelos ML entrenados y comparados:**
+
+1. **Baseline** (media móvil 4 semanas) — sirve de piso de comparación.
+2. **LightGBM Regressor** — modelo principal global; modelo guardado en `data/processed/lightgbm_model.txt`.
+3. **XGBoost Regressor** — modelo de comparación; guardado en `data/processed/xgboost_model.json`.
+4. **Prophet** — comparación en SKUs individuales del top.
 
 ---
 
 ## 3. Estructura del repositorio
 
 ```
-construnorte-rotacion/
-├── CLAUDE.md                       # Este archivo (contexto del proyecto)
-├── README.md                       # Instrucciones públicas de instalación y uso
-├── .claude/
-│   └── skills/                     # Skills especializadas (lee la relevante antes de cada tarea)
-│       ├── etl-pipeline/
-│       ├── feature-engineering/
-│       ├── abc-xyz-classification/
-│       ├── time-series-modeling/
-│       ├── evaluation-metrics/
-│       ├── mysql-operations/
-│       ├── notebook-style/
-│       └── project-conventions/
-├── docker-compose.yml              # Orquestación de los 3 servicios
+DataScienceProject/
+├── CLAUDE.md                       # Este archivo
+├── README.md                       # Instrucciones públicas
+├── docker-compose.yml              # Orquestación Docker (MySQL + Adminer + Jupyter)
 ├── .env                            # (gitignored) credenciales locales
-├── .env.example                    # plantilla pública sin contraseñas
+├── .env.example                    # Plantilla pública sin contraseñas
 ├── .gitignore
+├── requirements_api.txt            # Dependencias de la API REST
+├── .claude/
+│   └── skills/                     # Skills especializadas para Claude Code
 ├── docker/
 │   └── jupyter/
-│       ├── Dockerfile              # Imagen custom para Jupyter
-│       └── requirements.txt        # Librerías Python en el contenedor
+│       ├── Dockerfile
+│       └── requirements.txt        # Librerías del contenedor Jupyter
 ├── db/
 │   └── init/
-│       └── 01_schema.sql           # Schema inicial de MySQL (autoejecutado)
+│       └── 01_schema.sql           # Schema MySQL (autoejecutado al levantar)
 ├── data/
-│   ├── raw/                        # CSV original (NO subir a Git)
-│   └── processed/                  # Datasets intermedios (NO subir a Git)
+│   ├── raw/                        # CSV original (gitignored)
+│   └── processed/                  # Datasets intermedios y modelos (gitignored)
+│       ├── dataset_modelable.parquet
+│       ├── lightgbm_model.txt
+│       └── xgboost_model.json
 ├── notebooks/
-│   ├── 01_perfil_inicial.ipynb     # Comprensión de datos
+│   ├── 01_perfil_inicial.ipynb     # Comprensión del dataset
 │   ├── 02_eda.ipynb                # Análisis exploratorio
-│   ├── 03_preparacion.ipynb        # Limpieza y feature engineering
+│   ├── 03_preparacion.ipynb        # Limpieza, ETL y feature engineering
 │   ├── 04_abc_xyz.ipynb            # Clasificación ABC/XYZ
 │   ├── 05_baseline.ipynb           # Modelo baseline
 │   ├── 06_lightgbm.ipynb           # LightGBM
 │   ├── 07_xgboost.ipynb            # XGBoost
 │   ├── 08_prophet.ipynb            # Prophet
-│   └── 09_evaluacion_final.ipynb   # Comparación de modelos
-├── src/
-│   ├── __init__.py
-│   ├── db.py                       # Conexión a MySQL (engine SQLAlchemy)
-│   ├── etl.py                      # Pipeline ETL programático
-│   ├── features.py                 # Feature engineering reutilizable
+│   └── 09_evaluacion_final.ipynb   # Comparación y evaluación final
+├── src/                            # Módulos Python reutilizables
+│   ├── db.py                       # Conexión SQLAlchemy a MySQL
+│   ├── etl.py                      # Pipeline ETL
+│   ├── features.py                 # Feature engineering
 │   ├── abc_xyz.py                  # Clasificación ABC/XYZ
 │   ├── models.py                   # Entrenamiento de modelos
-│   └── evaluation.py               # Cálculo de métricas MAE/RMSE/MAPE
+│   └── evaluation.py               # Métricas MAE/RMSE/MAPE/sMAPE
+├── api/                            # API REST + dashboard web
+│   ├── main.py                     # FastAPI app principal
+│   ├── config.py                   # Variables de entorno
+│   ├── database.py                 # Engine SQLAlchemy + helper query()
+│   ├── schemas.py                  # Modelos Pydantic v2
+│   ├── routers/
+│   │   ├── pronosticos.py          # /api/pronosticos/*
+│   │   ├── clasificacion.py        # /api/clasificacion/*
+│   │   ├── metricas.py             # /api/metricas/*
+│   │   ├── insights.py             # /api/insights/*
+│   │   └── descriptivo.py          # /api/descriptivo/*
+│   └── static/                     # Frontend (index.html, app.js, styles.css, colors.js)
 ├── hop/
-│   └── etl_construnorte.hpl        # Flujo visual de Apache Hop
+│   └── ingesta_csv.hpl             # Flujo de ingesta CSV → MySQL (Apache Hop)
 ├── reports/
-│   ├── informe_ejecutivo.docx
-│   └── figures/
-├── dashboard/
-│   └── construnorte_rotacion.twb   # Tableau workbook
-└── docs/
-    ├── 01_comprension_negocio.md
-    ├── 02_diccionario_datos.md
-    ├── 03_preparacion_datos.md
-    ├── 04_modelado.md
-    └── 05_decisiones_tecnicas.md
+│   ├── clasificacion_abc_xyz.xlsx
+│   ├── evaluacion_final.xlsx
+│   └── figures/                    # Figuras generadas por los notebooks
+├── dashboard/                      # Workbook de Tableau
+└── docs/                           # Documentación técnica del proyecto
 ```
 
 ---
 
 ## 4. Dataset
 
-**Fuente:** CSV transaccional de ConstruNorte (~600K filas, 33 columnas, periodo 2024-01 a 2025-12+).
+**Fuente:** CSV transaccional de ConstruNorte (~660K filas, 33 columnas, periodo 2022–2026).
 
 **Granularidad de la fila cruda:** una línea de remisión/venta por SKU.
 
-**Variables que se RETIENEN (variables de producto y transacción):**
+**Variables que se RETIENEN:**
 - `Fecha`, `Item`, `Nombre Item`, `Referencia Item`, `Codigo Barra Item`
 - `Unidad Inventario 1 Item`, `Proveedor Codigo Item`, `Proveedor Nombre Item`
 - `Nombre Linea N1`, `Nombre Linea N2`, `Centro de Operacion`, `Tipo de Documento`
@@ -179,41 +177,27 @@ construnorte-rotacion/
 - `Vendedor`, `Nombre Vendedor`, `Cedula Vendedor`
 - `Documento Remision`, `Documento Ventas`, `Documento Pedido`
 
-**Esto debe hacerse en la FASE DE PREPARACIÓN antes de almacenar el dataset modelable en MySQL.**
+Los `df.drop()` correspondientes se ejecutan en la fase de preparación, antes de almacenar en MySQL.
 
 ---
 
 ## 5. Convenciones de código
 
 ### Python
-- **Estilo:** PEP 8.
-- **Encoding:** UTF-8 siempre.
-- **Type hints** en todas las funciones públicas.
-- **Docstrings** en formato Google style.
-- **Variables y funciones** en `snake_case`, en español cuando se refieran al dominio (`cantidad`, `valor_bruto`) y en inglés cuando sean técnicas (`train`, `predict`).
-- **Constantes** en `UPPER_SNAKE_CASE`.
-- **Imports** ordenados: stdlib → third-party → local.
-- **NO usar `print()`** en módulos `src/`. Usar `logging`.
-- En notebooks, `print()` está bien para explorar.
+- PEP 8. UTF-8. Type hints en funciones públicas. Docstrings Google style.
+- Variables de dominio en español (`cantidad`, `valor_bruto`), técnicas en inglés (`train`, `predict`).
+- Constantes en `UPPER_SNAKE_CASE`. Imports: stdlib → third-party → local.
+- `logging` en módulos `src/`; `print()` solo en notebooks.
 
 ### SQL
-- **Nombres de tablas y columnas** en `snake_case`, en español para el dominio.
-- **Llaves primarias** se llaman `id`.
-- **Llaves foráneas** se llaman `<tabla>_id`.
-- **Fechas** como `DATE`, **timestamps** como `TIMESTAMP`.
+- Tablas y columnas en `snake_case` en español.
+- PK: `id`. FK: `<tabla>_id`. Fechas: `DATE`. Timestamps: `TIMESTAMP`.
 - Toda tabla tiene `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`.
 
-### Notebooks
-- Cada notebook empieza con una celda Markdown que incluye: objetivo, inputs, outputs y autor.
-- Primera celda de código: imports.
-- Segunda celda: configuración (rutas, conexión BD).
-- **Lee la skill `notebook-style/` antes de crear o editar notebooks.**
-
 ### Git
-- **Commits** en español, en imperativo: "feat: agregar limpieza de outliers".
-- **Prefijos:** `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`, `wip:`.
-- **NO commitear** archivos en `data/raw/`, `data/processed/`, `models/*.pkl`, `.env`.
-- **NO commitear** notebooks con outputs pesados. Usar `nbstripout` o limpiar antes.
+- Commits en español, imperativo: `"feat: agregar limpieza de outliers"`.
+- Prefijos: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`, `wip:`.
+- NO commitear: `data/raw/`, `data/processed/`, `.env`, notebooks con outputs pesados.
 
 ---
 
@@ -223,97 +207,64 @@ construnorte-rotacion/
 ```bash
 docker compose up -d              # Levantar los 3 servicios
 docker compose down               # Apagar (mantiene datos)
-docker compose down -v            # Apagar y BORRAR datos (cuidado)
+docker compose down -v            # Apagar y BORRAR datos
 docker compose ps                 # Ver estado
-docker compose logs -f mysql      # Ver logs de un servicio
-docker compose build jupyter      # Rebuild si cambia el Dockerfile
+docker compose logs -f mysql      # Ver logs
+docker compose build jupyter      # Rebuild tras cambiar requirements.txt
 ```
 
 ### MySQL
 ```bash
-# Entrar al cliente mysql del contenedor
 docker exec -it construnorte_mysql mysql -u construnorte_user -p construnorte
-
-# Backup
 docker exec construnorte_mysql mysqldump -u root -p construnorte > backup.sql
 ```
 
 ### Jupyter
-- Abrir en navegador: `http://localhost:8888/?token=construnorte2026`
-- Adminer: `http://localhost:8080` (host: `mysql`, no `localhost`)
+- `http://localhost:8888/?token=<JUPYTER_TOKEN>`
+- Adminer: `http://localhost:8080` (servidor: `mysql`)
 
-### Python (desde host nativo, si se necesita)
+### API REST
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r docker/jupyter/requirements.txt
+.venv/bin/pip install -r requirements_api.txt   # solo primera vez
+.venv/bin/uvicorn api.main:app --reload --port 8000
 ```
+- Dashboard web: `http://localhost:8000/`
+- Swagger: `http://localhost:8000/docs`
 
 ---
 
 ## 7. Reglas que Claude Code debe seguir SIEMPRE
 
-1. **NUNCA hagas split aleatorio de los datos.** Es serie de tiempo — siempre usar `TimeSeriesSplit` de sklearn o partición temporal manual. Hacer split aleatorio filtra el futuro al modelo y es una violación grave de la metodología.
-
-2. **NUNCA pongas credenciales en el código.** Todo va en `.env` y se lee con `python-dotenv` u `os.getenv()`.
-
-3. **NUNCA subas el dataset original a Git.** `data/raw/` y `data/processed/` están en `.gitignore`. Si necesitas compartir una muestra, genera un CSV con `df.sample(1000)` y guárdalo en `data/sample/` con extensión explícita.
-
-4. **NUNCA proceses los datos personales.** Antes de cualquier análisis, los `df.drop()` correspondientes deben ejecutarse. Si la variable está en la lista de "ELIMINAR" arriba, no debe llegar a MySQL.
-
-5. **SIEMPRE agrega los datos a granularidad SEMANAL por SKU antes de modelar.** La fila cruda es transaccional; la fila de modelado es `(item, año, semana, centro_operacion) → cantidad_total`.
-
-6. **SIEMPRE reporta MAE, RMSE y MAPE juntos.** Nunca solo una. Si la variable real tiene ceros, advierte que MAPE puede explotar y usa sMAPE como alternativa.
-
-7. **SIEMPRE compara contra el baseline** (media móvil de 4 semanas). Si el modelo no le gana al baseline, no sirve.
-
-8. **SIEMPRE lee la skill relevante antes de empezar una tarea nueva.** Las skills están en `.claude/skills/`. Sus nombres son autoexplicativos.
-
-9. **NO instales librerías nuevas** sin actualizar `docker/jupyter/requirements.txt`. Si añades algo, agrégalo al archivo y avisa que hay que hacer `docker compose build jupyter`.
-
-10. **NO cambies el `docker-compose.yml`** sin discutirlo. Si propones cambios, hazlos en una rama nueva o como sugerencia en texto.
+1. **NUNCA hagas split aleatorio de los datos.** Siempre partición temporal manual o `TimeSeriesSplit`.
+2. **NUNCA pongas credenciales en el código.** Todo va en `.env`.
+3. **NUNCA subas el dataset original a Git.** `data/raw/` y `data/processed/` están en `.gitignore`.
+4. **NUNCA proceses datos personales.** Si la variable está en la lista de ELIMINAR, no debe llegar a MySQL.
+5. **SIEMPRE agrega a granularidad SEMANAL por SKU antes de modelar.** `(item, año, semana, centro_operacion) → cantidad_total`.
+6. **SIEMPRE reporta MAE, RMSE y MAPE juntos.** Si hay ceros en el target, usa sMAPE como alternativa.
+7. **SIEMPRE compara contra el baseline** (media móvil 4 semanas).
+8. **NO instales librerías nuevas** sin actualizar `docker/jupyter/requirements.txt` o `requirements_api.txt` según corresponda.
 
 ---
 
 ## 8. Skills disponibles
 
-Antes de empezar cualquier tarea técnica, **lee la skill correspondiente**. Cada skill vive en `.claude/skills/<nombre>/SKILL.md`.
-
 | Skill | Cuándo leerla |
 |---|---|
 | `project-conventions/` | Antes de crear cualquier archivo nuevo |
-| `mysql-operations/` | Antes de tocar tablas, hacer queries o cargar datos |
-| `etl-pipeline/` | Antes de procesar el CSV, configurar el flujo de Hop o cargar a MySQL |
-| `feature-engineering/` | Antes de generar features (lags, calendario, medias móviles) |
-| `abc-xyz-classification/` | Antes de calcular ABC, XYZ o la matriz combinada |
-| `time-series-modeling/` | Antes de entrenar LightGBM, XGBoost o Prophet |
-| `evaluation-metrics/` | Antes de calcular o reportar MAE/RMSE/MAPE |
-| `notebook-style/` | Antes de crear o modificar un notebook |
-| `requirements-style/` | Antes de redactar épicas, historias de usuario o requerimientos de datos en docs/ |
+| `mysql-operations/` | Antes de tocar tablas o cargar datos |
+| `etl-pipeline/` | Antes de procesar el CSV o cargar a MySQL |
+| `feature-engineering/` | Antes de generar features |
+| `abc-xyz-classification/` | Antes de calcular ABC/XYZ |
+| `time-series-modeling/` | Antes de entrenar modelos |
+| `evaluation-metrics/` | Antes de calcular o reportar métricas |
+| `notebook-style/` | Antes de crear o modificar notebooks |
+| `requirements-style/` | Antes de redactar requerimientos en `docs/` |
 
 ---
 
-## 9. Información de privacidad y seguridad
+## 9. Privacidad y seguridad
 
-- El dataset contiene **datos personales** protegidos por la Ley 1581 de 2012 de Colombia.
-- El equipo tiene **carta de autorización firmada** por ConstruNorte.
-- Los archivos crudos viven solo en los equipos del equipo, protegidos por contraseña.
-- Al cierre del proyecto, los `.csv` originales se eliminan.
-- El repositorio público en GitHub **NUNCA** contiene el dataset original.
-- En el informe, los nombres de productos y proveedores pueden anonimizarse si la dirección de ConstruNorte lo solicita.
-
----
-
-## 10. Cómo trabajar con Claude Code en este proyecto
-
-**Flujo recomendado:**
-
-1. Abre Claude Code en la raíz del proyecto.
-2. Cuando inicies sesión, Claude lee este `CLAUDE.md` automáticamente.
-3. Para una tarea nueva, indica explícitamente: *"Lee primero la skill `<nombre>` antes de empezar."*
-4. Pide que use **commits atómicos** (un cambio lógico por commit).
-5. Pide que **valide en MySQL** después de cargar datos (con un `SELECT COUNT(*)`).
-6. Si Claude propone instalar una librería nueva, recuerda actualizar `requirements.txt` y hacer rebuild.
-
-**Frase útil para iniciar sesiones:**
-> *"Voy a trabajar en [TAREA]. Lee primero `CLAUDE.md` y la skill `<nombre>/SKILL.md`, luego propón un plan en 5 pasos antes de empezar a escribir código."*
+- Dataset protegido por la **Ley 1581 de 2012** de Colombia.
+- Carta de autorización firmada por ConstruNorte (Anexo C del informe).
+- Los archivos crudos viven solo en equipos del equipo, protegidos por contraseña.
+- El repositorio público en GitHub **nunca** contiene el dataset original.
