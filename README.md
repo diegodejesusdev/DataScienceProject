@@ -2,7 +2,36 @@
 
 > Proyecto académico del **Diplomado en Ingeniería y Ciencia de Datos Aplicada** — **Corporación Universitaria Comfacauca (Unicomfacauca)**, 2026.
 
-Sistema analítico predictivo que pronostica la demanda y caracteriza la rotación de los productos comercializados por **CONSTRUNORTE COMERCIALIZADORA S.A.S.** durante el periodo enero 2024 – diciembre 2025, con el fin de generar insumos analíticos que respalden decisiones de aprovisionamiento y organización de bodega.
+Sistema analítico predictivo que pronostica la demanda y caracteriza la rotación de los productos comercializados por **CONSTRUNORTE COMERCIALIZADORA S.A.S.** durante el periodo enero 2024 – marzo 2026, con el fin de generar insumos analíticos que respalden decisiones de aprovisionamiento y organización de bodega.
+
+![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![LightGBM](https://img.shields.io/badge/LightGBM-02569B?style=flat-square)
+![XGBoost](https://img.shields.io/badge/XGBoost-189FDD?style=flat-square)
+![Prophet](https://img.shields.io/badge/Prophet-0668E1?style=flat-square&logo=meta&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL_8-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Tableau](https://img.shields.io/badge/Tableau-E97627?style=flat-square&logo=tableau&logoColor=white)
+
+---
+
+## Resultados
+
+- **Datos:** ventas transaccionales de enero 2024 a marzo 2026 (118 semanas), agregadas a demanda **semanal por SKU × centro de operación**. Se modelaron **2.310 SKUs activos** (de 4.282) en **3 centros**.
+- **Partición temporal:** entrenamiento (91 semanas), validación (13) y prueba con datos de 2026 (13).
+- **Clasificación ABC/XYZ** de 2.380 SKUs para segmentar el inventario por valor y por variabilidad de la demanda.
+
+Comparación en el conjunto de prueba 2026, sobre los 2.310 SKUs:
+
+| Modelo | MAE | RMSE | Mejora en MAE vs baseline |
+|---|---|---|---|
+| Baseline (media móvil 4 semanas) | 32.50 | 389.01 | — |
+| **LightGBM** | **6.77** | **144.97** | **+79.18 %** |
+| XGBoost | 13.25 | 258.42 | +59.23 % |
+
+- **Modelo recomendado: LightGBM.** Gana en validación y en prueba, no se degrada con datos nuevos (MAE 8.85 → 6.77) y cubre todos los SKUs con un solo modelo.
+- **Prophet** se evaluó solo en los 50 SKUs clase A más importantes y no superó al baseline de forma relevante (+4.6 % en MAE); se usa para descomponer tendencia y estacionalidad, no para producción.
+- Los pronósticos de los 4 modelos (394.855 filas) y sus métricas quedan en MySQL y los consume la API.
 
 ---
 
@@ -45,8 +74,8 @@ Sistema analítico predictivo que pronostica la demanda y caracteriza la rotaci�
 ### Paso 1 — Clonar el repositorio
 
 ```bash
-git clone https://github.com/diegodejesus/construnorte-rotacion.git
-cd construnorte-rotacion
+git clone https://github.com/diegodejesusdev/DataScienceProject.git
+cd DataScienceProject
 ```
 
 ### Paso 2 — Configurar variables de entorno
@@ -101,7 +130,7 @@ Los tres servicios deben aparecer como `running` o `healthy`.
 ## Estructura del proyecto
 
 ```
-construnorte-rotacion/
+DataScienceProject/
 ├── CLAUDE.md                       # Instrucciones para Claude Code
 ├── README.md                       # Este archivo
 ├── docker-compose.yml              # Orquestación Docker (MySQL + Adminer + Jupyter)
@@ -153,11 +182,7 @@ construnorte-rotacion/
 │       └── colors.js
 ├── hop/
 │   └── ingesta_csv.hpl             # Flujo de ingesta CSV → MySQL (Apache Hop)
-├── reports/
-│   ├── clasificacion_abc_xyz.xlsx  # Tabla de clasificación exportada
-│   ├── evaluacion_final.xlsx       # Métricas comparativas de todos los modelos
-│   └── figures/                    # Figuras generadas por los notebooks
-├── dashboard/                      # Workbook de Tableau
+├── reports/                        # Excel y figuras generados por los notebooks (no versionados)
 └── docs/                           # Documentación técnica y de diseño
 ```
 
@@ -176,13 +201,17 @@ construnorte-rotacion/
 
 ## API REST — Endpoints principales
 
-| Grupo | Prefijo | Descripción |
+14 endpoints `GET`, agrupados en 5 routers:
+
+| Grupo | Endpoints | Descripción |
 |---|---|---|
-| Pronósticos | `/api/pronosticos` | Predicciones semanales por SKU y horizonte |
-| Clasificación | `/api/clasificacion` | Matriz ABC/XYZ por SKU |
-| Métricas | `/api/metricas` | MAE, RMSE, MAPE, sMAPE por modelo |
-| Insights | `/api/insights` | Hallazgos y resúmenes analíticos |
-| Descriptivo | `/api/descriptivo` | Series históricas, top SKUs, estacionalidad |
+| Pronósticos | `/api/pronosticos/top`, `/sku/{item}`, `/por-centro` | Predicciones semanales por SKU y por centro |
+| Clasificación | `/api/clasificacion/resumen` | Resumen de la matriz ABC/XYZ |
+| Métricas | `/api/metricas/comparacion` | MAE, RMSE, MAPE y sMAPE por modelo |
+| Insights | `/api/insights/crecimiento`, `/alertas` | Crecimiento proyectado y alertas de cambio en la demanda |
+| Descriptivo | `/api/descriptivo/lineas-top`, `/pareto`, `/diamantes`, `/estacionalidad`, `/ventas-por-centro`, `/lineas-por-centro`, `/top-skus-por-centro` | Series históricas, Pareto, estacionalidad y ventas por centro |
+
+La raíz `/` sirve el dashboard web (HTML + CSS + JS) que consume estos endpoints.
 
 Documentación interactiva completa en `http://localhost:8000/docs`.
 
